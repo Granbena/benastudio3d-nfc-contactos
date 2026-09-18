@@ -1,0 +1,10 @@
+BEGIN:VCARD
+VERSION:3.0
+FN:Carla Lavin
+N:Lavin;Carla;;;
+ORG:Segal Deudores
+TEL;TYPE=CELL:+56931920193
+EMAIL;TYPE=INTERNET:clavin@segal.cl
+ADR;TYPE=WORK:;;Huérfanos 670 oficina 1601;Santiago;;;Chile
+URL:https://segaldeudores.cl/
+END:VCARD
