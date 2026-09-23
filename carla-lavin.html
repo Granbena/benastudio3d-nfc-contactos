@@ -164,10 +164,29 @@
     .detail span:last-child { overflow-wrap: anywhere; }
 
     footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
       padding: 0 22px 22px;
       color: #98a2b3;
       text-align: center;
       font-size: 11px;
+      font-weight: 600;
+    }
+
+    .creator-mark {
+      display: inline-flex;
+      width: 20px;
+      height: 20px;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      color: #fff;
+      background: #111827;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1;
     }
 
     @media (max-width: 350px) {
@@ -229,7 +248,10 @@
         </a>
       </div>
 
-      <footer>Acerca tu teléfono al llavero NFC para volver a esta tarjeta.</footer>
+      <footer>
+        <span class="creator-mark" aria-hidden="true">B</span>
+        <span>Creado por BenaStudio3D</span>
+      </footer>
     </section>
   </main>
 </body>
