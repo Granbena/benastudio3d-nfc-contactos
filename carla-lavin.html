@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#17499b">
+  <title>Carla Lavín | Segal Deudores</title>
+  <meta name="description" content="Tarjeta de contacto de Carla Lavín, Directora Jurídica de Segal Deudores.">
+  <style>
+    :root {
+      --blue: #17499b;
+      --blue-dark: #10356f;
+      --ink: #101828;
+      --muted: #667085;
+      --line: #e4e7ec;
+      --surface: #ffffff;
+      --background: #f4f7fb;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 24px 16px;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 50% 0%, #e8effb 0, transparent 38%),
+        var(--background);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+        "Segoe UI", sans-serif;
+    }
+
+    main {
+      width: min(100%, 460px);
+      margin: 0 auto;
+    }
+
+    .card {
+      overflow: hidden;
+      border: 1px solid rgba(16, 24, 40, .08);
+      border-radius: 28px;
+      background: var(--surface);
+      box-shadow: 0 20px 50px rgba(16, 36, 70, .12);
+    }
+
+    .brand {
+      padding: 30px 24px 26px;
+      text-align: center;
+      border-bottom: 4px solid var(--blue);
+    }
+
+    .monogram {
+      display: inline-flex;
+      align-items: baseline;
+      justify-content: center;
+      margin-bottom: 2px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 76px;
+      line-height: .9;
+      letter-spacing: -12px;
+    }
+
+    .monogram .s { color: #111; }
+    .monogram .d { color: var(--blue); }
+
+    .company {
+      margin: 10px 0 0;
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: .22em;
+    }
+
+    .tagline {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: .13em;
+    }
+
+    .profile {
+      padding: 28px 24px 10px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.15;
+    }
+
+    .role {
+      margin: 7px 0 0;
+      color: var(--blue);
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: calc(100% - 48px);
+      min-height: 56px;
+      margin: 20px 24px 14px;
+      padding: 14px 20px;
+      border-radius: 16px;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 10px 22px rgba(23, 73, 155, .24);
+      font-size: 16px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .primary:active { background: var(--blue-dark); transform: translateY(1px); }
+
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 0 24px 20px;
+    }
+
+    .action {
+      display: flex;
+      min-height: 70px;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 5px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      color: var(--ink);
+      background: #fff;
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .action .icon { color: var(--blue); font-size: 22px; line-height: 1; }
+
+    .details {
+      margin: 0 24px 24px;
+      border-top: 1px solid var(--line);
+    }
+
+    .detail {
+      display: grid;
+      grid-template-columns: 28px 1fr;
+      gap: 10px;
+      align-items: start;
+      padding: 14px 2px;
+      border-bottom: 1px solid var(--line);
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .detail:last-child { border-bottom: 0; }
+    .detail .icon { color: var(--blue); text-align: center; }
+    .detail span:last-child { overflow-wrap: anywhere; }
+
+    footer {
+      padding: 0 22px 22px;
+      color: #98a2b3;
+      text-align: center;
+      font-size: 11px;
+    }
+
+    @media (max-width: 350px) {
+      .actions { grid-template-columns: 1fr; }
+      .action { min-height: 50px; flex-direction: row; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card" aria-label="Tarjeta de contacto de Carla Lavín">
+      <header class="brand">
+        <div class="monogram" aria-label="SD"><span class="s">S</span><span class="d">D</span></div>
+        <p class="company">SEGAL DEUDORES</p>
+        <p class="tagline">DEFENSA LEGAL</p>
+      </header>
+
+      <div class="profile">
+        <h1>Carla Lavín</h1>
+        <p class="role">Directora Jurídica · Abogada</p>
+      </div>
+
+      <a class="primary" href="./carla-lavin.vcf" download>
+        <span aria-hidden="true">＋</span>
+        Guardar contacto
+      </a>
+
+      <nav class="actions" aria-label="Acciones rápidas">
+        <a class="action" href="tel:+56931920193">
+          <span class="icon" aria-hidden="true">☎</span>
+          Llamar
+        </a>
+        <a class="action" href="https://wa.me/56931920193" rel="noopener">
+          <span class="icon" aria-hidden="true">◉</span>
+          WhatsApp
+        </a>
+        <a class="action" href="mailto:clavin@segal.cl">
+          <span class="icon" aria-hidden="true">✉</span>
+          Correo
+        </a>
+      </nav>
+
+      <div class="details">
+        <a class="detail" href="mailto:clavin@segal.cl">
+          <span class="icon" aria-hidden="true">✉</span>
+          <span>clavin@segal.cl</span>
+        </a>
+        <a class="detail" href="tel:+56931920193">
+          <span class="icon" aria-hidden="true">☎</span>
+          <span>+56 9 3192 0193</span>
+        </a>
+        <a class="detail" href="https://www.google.com/maps/search/?api=1&amp;query=Hu%C3%A9rfanos%20670%20oficina%201601%2C%20Santiago%2C%20Chile" rel="noopener">
+          <span class="icon" aria-hidden="true">●</span>
+          <span>Huérfanos 670, oficina 1601, Santiago</span>
+        </a>
+        <a class="detail" href="https://segaldeudores.cl/" rel="noopener">
+          <span class="icon" aria-hidden="true">↗</span>
+          <span>segaldeudores.cl</span>
+        </a>
+        <a class="detail" href="https://www.instagram.com/segaldeudores.cl/" rel="noopener">
+          <span class="icon" aria-hidden="true">◎</span>
+          <span>@segaldeudores.cl</span>
+        </a>
+      </div>
+
+      <footer>Acerca tu teléfono al llavero NFC para volver a esta tarjeta.</footer>
+    </section>
+  </main>
+</body>
+</html>
