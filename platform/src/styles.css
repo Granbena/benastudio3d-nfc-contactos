@@ -44,6 +44,11 @@
 .site-footer{display:flex;align-items:center;justify-content:space-between;gap:20px;max-width:1180px;margin:auto;padding:24px 30px 30px;text-align:left}
 .site-footer nav{display:flex;align-items:center;gap:18px}
 .site-footer a,.site-footer button{display:inline-flex;align-items:center;gap:5px;border:0;background:transparent;color:#667085;text-decoration:none;font-size:12px}
+.update-request-box{margin-top:24px;padding:20px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff;text-align:center}
+.update-request-box strong{display:block;font:800 16px Manrope}
+.update-request-box p{margin:6px 0 15px;color:#667085;font-size:13px;line-height:1.45}
+.update-request-box a{display:flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:10px 14px;border:1px solid #93c5fd;border-radius:10px;color:#1d4ed8;background:#fff;font-size:13px;font-weight:800;text-decoration:none}
+.update-request-box a:hover{background:#eff6ff}
 
 @media(max-width:900px){
   .home-grid{gap:60px}

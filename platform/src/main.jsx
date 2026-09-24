@@ -70,7 +70,7 @@ function Home() {
         <form className="code-box" onSubmit={enter}>
           <div className="code-heading"><strong>¿Ya eres cliente?</strong><span>Ingresa el código entregado a tu empresa.</span></div>
           <label htmlFor="company-code">Código de acceso</label>
-          <div><input id="company-code" value={code} onChange={e => setCode(e.target.value)} placeholder="Ej. SEGAL2026" autoCapitalize="characters" /><button>Continuar</button></div>
+          <div><input id="company-code" value={code} onChange={e => setCode(e.target.value)} autoCapitalize="characters" /><button>Continuar</button></div>
         </form>
       </div>
       <div className="hero-card-wrap">
@@ -109,7 +109,7 @@ function CompanyForm({ code }) {
   const [loading, setLoading] = useState(true);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ first_name: '', last_name: '', role: '', phone: '', email: '', photo_url: '', consent: false });
+  const [form, setForm] = useState({ first_name: '', last_name: '', role: '', phone: '', email: '', consent: false });
 
   useEffect(() => {
     supabase.from('nfc_companies').select('*').eq('access_code', decodeURIComponent(code).toUpperCase()).eq('enabled', true).maybeSingle()
@@ -119,7 +119,7 @@ function CompanyForm({ code }) {
   async function submit(e) {
     e.preventDefault(); setError('');
     if (!form.consent) return setError('Debes autorizar la publicación de los datos.');
-    const { error: insertError } = await supabase.from('nfc_contacts').insert({ ...form, company_id: company.id, photo_url: form.photo_url || null });
+    const { error: insertError } = await supabase.from('nfc_contacts').insert({ ...form, company_id: company.id });
     if (insertError) return setError('No pudimos enviar la solicitud. Revisa los datos e inténtalo nuevamente.');
     setSent(true);
   }
@@ -127,6 +127,8 @@ function CompanyForm({ code }) {
   if (loading) return <Spinner />;
   if (!company) return <NotFound title="Código no encontrado" text="Revisa el código entregado por tu empresa o solicítalo nuevamente." />;
   if (sent) return <main className="form-shell"><Brand /><section className="success-card"><CheckCircle2 size={54} /><h1>Solicitud enviada</h1><p>BenaStudio3D revisará tus datos antes de publicar la tarjeta y programar el NFC.</p><button onClick={() => go('/')}>Volver al inicio</button></section></main>;
+
+  const updateRequestUrl = `https://wa.me/56954056277?text=${encodeURIComponent(`Hola, necesito actualizar los datos de mi tarjeta digital NFC.\n\nEmpresa: ${company.name}\nMi nombre completo es:\nEl dato que necesito modificar es:`)}`;
 
   return <main className="form-shell">
     <header className="form-header"><Brand compact /><button className="text-button" onClick={() => go('/')}><ArrowLeft size={16} /> Salir</button></header>
@@ -145,11 +147,15 @@ function CompanyForm({ code }) {
             <Field label="Teléfono" type="tel" value={form.phone} onChange={v => setForm({ ...form, phone: v })} placeholder="+56 9…" required />
             <Field label="Correo" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} required />
           </div>
-          <Field label="URL de fotografía (opcional)" type="url" value={form.photo_url} onChange={v => setForm({ ...form, photo_url: v })} placeholder="https://…" />
           <label className="consent"><input type="checkbox" checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} /><span>Autorizo a publicar estos datos en mi tarjeta digital de contacto.</span></label>
           {error && <p className="form-error">{error}</p>}
           <button className="primary-button" type="submit">Enviar para revisión <Check size={18} /></button>
         </form>
+        <aside className="update-request-box">
+          <strong>¿Ya tienes una tarjeta publicada?</strong>
+          <p>Solicita cambios en tu cargo, teléfono, correo u otros datos.</p>
+          <a href={updateRequestUrl} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Solicitar actualización por WhatsApp</a>
+        </aside>
       </section>
       <aside className="preview-panel"><span>Vista previa</span><ContactCard company={company} contact={form} preview /></aside>
     </div>
