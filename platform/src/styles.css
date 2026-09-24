@@ -29,9 +29,9 @@
 .demo-intro p{margin:0;color:#667085;font-size:16px;line-height:1.55}
 .benefits{display:flex;flex-wrap:wrap;gap:7px;margin-top:15px}
 .benefits span{padding:7px 10px;border:1px solid #dbeafe;border-radius:999px;color:#1d4ed8;background:rgba(239,246,255,.82);font-size:11px;font-weight:800}
-.demo-label{display:flex;align-items:end;justify-content:space-between;margin:0 12px 11px}
+.demo-label{display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:8px;margin:0 12px 11px}
 .demo-label strong{font-size:13px}
-.demo-label span{color:#98a2b3;font-size:11px}
+.demo-label span{padding:4px 8px;border-radius:999px;color:#475467;background:#f2f4f7;font-size:10px;font-weight:700;letter-spacing:.02em}
 .card-stage{position:relative}
 .process-section{max-width:1120px;margin:0 auto 70px;padding:58px 30px;text-align:center;border:1px solid rgba(208,213,221,.8);border-radius:28px;background:rgba(255,255,255,.72);box-shadow:0 22px 55px rgba(15,23,42,.06)}
 .process-section>h2{max-width:650px;margin:12px auto 30px;font-size:36px}
@@ -59,7 +59,7 @@
   .demo-intro{text-align:center}
   .demo-intro h2{font-size:27px}
   .benefits{justify-content:center}
-  .demo-label{align-items:flex-start;flex-direction:column;gap:2px}
+  .demo-label{justify-content:center}
   .card-stage .nfc-orbit{right:-6px}
   .process-section{margin-bottom:35px;padding:38px 18px}
   .process-section>h2{font-size:29px}
