@@ -1,4 +1,3 @@
-// Activar despliegue inicial en Vercel
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
@@ -157,8 +156,8 @@ function CompanyForm({ code }) {
   </main>;
 }
 
-function Field({ label, value, onChange, type = 'text', required = false, placeholder = '' }) {
-  return <label className="field"><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} /></label>;
+function Field({ label, value, onChange, type = 'text', required = false, placeholder = '', autoComplete }) {
+  return <label className="field"><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} autoComplete={autoComplete} /></label>;
 }
 
 function PublicContact({ companySlug, contactSlug }) {
@@ -231,7 +230,7 @@ function Admin() {
 }
 
 function AdminLogin() {
-  const [email, setEmail] = useState(ADMIN_EMAIL);
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
   async function login(e) {
@@ -239,7 +238,7 @@ function AdminLogin() {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setMessage(error ? 'Correo o contraseña incorrectos.' : 'Acceso correcto.');
   }
-  return <main className="login-shell"><Brand /><section className="login-card"><ShieldCheck size={38} /><h1>Panel de administración</h1><form onSubmit={login}><Field label="Correo administrador" type="email" value={email} onChange={setEmail} required /><Field label="Contraseña" type="password" value={password} onChange={setPassword} required /><button className="primary-button">Ingresar</button></form>{message && <p className="login-message">{message}</p>}</section></main>;
+  return <main className="login-shell"><Brand /><section className="login-card"><ShieldCheck size={38} /><h1>Panel de administración</h1><form onSubmit={login} autoComplete="off"><Field label="Correo administrador" type="email" value={email} onChange={setEmail} autoComplete="off" required /><Field label="Contraseña" type="password" value={password} onChange={setPassword} autoComplete="new-password" required /><button className="primary-button">Ingresar</button></form>{message && <p className="login-message">{message}</p>}</section></main>;
 }
 
 function AdminDashboard({ session }) {
