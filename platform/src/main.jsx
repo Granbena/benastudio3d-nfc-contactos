@@ -202,7 +202,6 @@ function ContactCard({ company, contact, preview = false }) {
       {company.tagline && <small>{company.tagline}</small>}
     </header>
     <section className="contact-profile">
-      {contact.photo_url ? <img className="avatar" src={contact.photo_url} alt={name} /> : <div className="avatar avatar-fallback">{initials(contact.first_name, contact.last_name)}</div>}
       <h1>{name}</h1><p>{contact.role || 'Cargo profesional'}</p>
     </section>
     <button className="save-contact" onClick={saveVcard} disabled={preview}><Plus size={19} /> Guardar contacto</button>
