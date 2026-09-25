@@ -101,6 +101,9 @@
 .company-identity.logo-auto .company-logo{width:auto;max-width:260px;height:auto;max-height:100px}
 .company-identity.logo-compact .company-logo{width:auto;max-width:170px;height:auto;max-height:112px}
 .company-identity.logo-horizontal .company-logo{width:auto;max-width:310px;height:auto;max-height:88px}
+.company-identity.logo-horizontal{flex-direction:row;gap:18px;text-align:left}
+.company-identity.logo-horizontal .company-mark{padding-right:18px;border-right:1px solid rgba(255,255,255,.28);font-size:58px;letter-spacing:-.08em}
+.company-identity.logo-horizontal .company-brand-copy strong,.company-identity.logo-horizontal .company-brand-copy small{text-align:left}
 .contact-brand .company-mark{color:var(--secondary);font:800 54px/.95 Manrope;letter-spacing:-.07em}
 .company-brand-copy strong,.company-brand-copy small{display:block;color:#fff}
 .company-brand-copy strong{font:800 13px Manrope;letter-spacing:.18em}
