@@ -16,6 +16,7 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 const ADMIN_EMAIL = 'granbena@gmail.com';
 const WHATSAPP_QUOTE_URL = `https://wa.me/56954056277?text=${encodeURIComponent('Hola, vi el servicio de tarjetas digitales NFC de BenaStudio3D y quisiera recibir información para mi empresa.')}`;
+const CONSENT_VERSION = 'v1-2026-09-25';
 const STATUS = {
   pending: 'Pendiente', review: 'Revisar', published: 'Publicado',
   nfc_programmed: 'NFC programado', delivered: 'Entregado', disabled: 'Desactivado'
@@ -173,7 +174,7 @@ function CompanyForm({ code }) {
 
   async function submit(e) {
     e.preventDefault(); setError('');
-    if (!form.consent) return setError('Debes autorizar la publicación de los datos.');
+    if (!form.consent) return setError('Debes aceptar la autorización para enviar la solicitud.');
     const phone = form.phone.trim() || null;
     const email = form.email.trim() || null;
     const { error: insertError } = await supabase.from('nfc_contacts').insert({
@@ -212,9 +213,12 @@ function CompanyForm({ code }) {
             <Field label="Correo (opcional)" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} />
           </div>
           <ContactPreferences form={form} setForm={setForm} />
-          <label className="consent"><input type="checkbox" checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} /><span>Autorizo a publicar estos datos en mi tarjeta digital de contacto.</span></label>
+          <label className="consent">
+            <input type="checkbox" checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} required />
+            <span><strong>Autorización obligatoria *</strong>Autorizo a BenaStudio3D y a {company.name} a almacenar y publicar los datos ingresados en mi tarjeta digital de contacto. Podré solicitar su modificación o eliminación.<small>Versión {CONSENT_VERSION}</small></span>
+          </label>
           {error && <p className="form-error">{error}</p>}
-          <button className="primary-button" type="submit">Enviar para revisión <Check size={18} /></button>
+          <button className="primary-button" type="submit" disabled={!form.consent}>Enviar para revisión <Check size={18} /></button>
         </form>
         <aside className="update-request-box">
           <strong>¿Ya tienes una tarjeta publicada?</strong>
@@ -295,7 +299,9 @@ function PublicContact({ companySlug, contactSlug }) {
     (async () => {
       const { data: company } = await supabase.from('nfc_companies').select('*').eq('slug', companySlug).maybeSingle();
       if (!company) return setLoading(false);
-      const { data: contact } = await supabase.from('nfc_contacts').select('*').eq('company_id', company.id).eq('slug', contactSlug).maybeSingle();
+      const { data: contact } = await supabase.from('nfc_contacts')
+        .select('id,company_id,slug,first_name,last_name,role,phone,email,photo_url,status,published_at,nfc_programmed_at,delivered_at,created_at,updated_at,show_call,show_whatsapp')
+        .eq('company_id', company.id).eq('slug', contactSlug).maybeSingle();
       if (contact) setData({ company, contact });
       setLoading(false);
     })();
@@ -542,7 +548,11 @@ function EditContact({ contact, company, onClose, onSaved }) {
     const { error: updateError } = await supabase.from('nfc_contacts').update(payload).eq('id', contact.id);
     if (updateError) setError(updateError.message); else onSaved();
   }
-  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={e => e.stopPropagation()}><header><div><span>{company?.name}</span><h2>Revisar contacto</h2></div><button onClick={onClose}>×</button></header><form onSubmit={save}><div className="two-cols"><Field label="Nombre" value={form.first_name} onChange={v => setForm({ ...form, first_name: v })} required /><Field label="Apellidos" value={form.last_name} onChange={v => setForm({ ...form, last_name: v })} required /></div><Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} required /><div className="two-cols"><Field label="Teléfono (opcional)" value={form.phone || ''} onChange={v => setForm({ ...form, phone: v })} /><Field label="Correo (opcional)" type="email" value={form.email || ''} onChange={v => setForm({ ...form, email: v })} /></div><ContactPreferences form={form} setForm={setForm} /><Field label="Dirección de la tarjeta" value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera al publicar" /><label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{error && <p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div></form></section></div>;
+  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={e => e.stopPropagation()}>
+    <header><div><span>{company?.name}</span><h2>Revisar contacto</h2></div><button onClick={onClose}>×</button></header>
+    {contact.consent && <div className="consent-record"><ShieldCheck size={21} /><span><strong>Autorización registrada</strong><small>Respaldo guardado con la solicitud del {new Date(contact.created_at).toLocaleString('es-CL')}.</small></span></div>}
+    <form onSubmit={save}><div className="two-cols"><Field label="Nombre" value={form.first_name} onChange={v => setForm({ ...form, first_name: v })} required /><Field label="Apellidos" value={form.last_name} onChange={v => setForm({ ...form, last_name: v })} required /></div><Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} required /><div className="two-cols"><Field label="Teléfono (opcional)" value={form.phone || ''} onChange={v => setForm({ ...form, phone: v })} /><Field label="Correo (opcional)" type="email" value={form.email || ''} onChange={v => setForm({ ...form, email: v })} /></div><ContactPreferences form={form} setForm={setForm} /><Field label="Dirección de la tarjeta" value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera al publicar" /><label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{error && <p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div></form>
+  </section></div>;
 }
 
 function NotFound({ title, text }) {

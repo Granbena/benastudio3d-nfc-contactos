@@ -152,3 +152,12 @@
   .company-identity.logo-horizontal .company-brand-copy small{font-size:9px;letter-spacing:.22em}
   .preview-panel{display:block}
 }
+
+.consent{line-height:1.45}
+.consent span{display:block}
+.consent strong{display:block;margin-bottom:3px;color:#344054}
+.consent small{display:block;margin-top:5px;color:#98a2b3;font-size:10px}
+.form-panel .primary-button:disabled{cursor:not-allowed;opacity:.45}
+.consent-record{display:flex;align-items:flex-start;gap:10px;margin:-5px 0 20px;padding:12px 14px;border:1px solid #bbf7d0;border-radius:11px;color:#166534;background:#f0fdf4}
+.consent-record span,.consent-record strong,.consent-record small{display:block}
+.consent-record small{margin-top:3px;color:#4b7a5b;font-size:11px}
