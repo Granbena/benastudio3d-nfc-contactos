@@ -21,6 +21,19 @@ const STATUS = {
   nfc_programmed: 'NFC programado', delivered: 'Entregado', disabled: 'Desactivado'
 };
 
+const DEFAULT_COMPANY_BRAND = {
+  logo_url: '', logo_layout: 'auto', show_brand_text: false,
+  primary_color: '#2563EB', header_color: '#0B1628',
+  secondary_color: '#60A5FA', button_color: '#2563EB', header_effect: true
+};
+
+function emptyCompany() {
+  return {
+    name: '', slug: '', access_code: '', logo_text: '', tagline: '', address: '',
+    website: '', instagram: '', enabled: true, ...DEFAULT_COMPANY_BRAND
+  };
+}
+
 function go(path) {
   window.history.pushState({}, '', path);
   window.dispatchEvent(new PopStateEvent('popstate'));
@@ -39,6 +52,20 @@ function cleanUrl(value) {
 function whatsappUrl(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
   return digits ? `https://wa.me/${digits}` : '';
+}
+
+async function uploadCompanyLogo(file, companySlug) {
+  if (!file) return '';
+  const allowedTypes = ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'];
+  if (!allowedTypes.includes(file.type)) throw new Error('El logo debe ser PNG, JPG, WebP o SVG.');
+  if (file.size > 2 * 1024 * 1024) throw new Error('El logo no puede superar los 2 MB.');
+  const extension = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const path = `${slugify(companySlug || 'empresa')}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`;
+  const { error } = await supabase.storage.from('nfc-company-logos').upload(path, file, {
+    cacheControl: '3600', contentType: file.type, upsert: false
+  });
+  if (error) throw new Error(`No se pudo subir el logo: ${error.message}`);
+  return supabase.storage.from('nfc-company-logos').getPublicUrl(path).data.publicUrl;
 }
 
 function WhatsAppIcon({ size = 24, className = '' }) {
@@ -195,6 +222,41 @@ function Field({ label, value, onChange, type = 'text', required = false, placeh
   return <label className="field"><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} autoComplete={autoComplete} /></label>;
 }
 
+function ColorField({ label, value, onChange }) {
+  return <label className="field color-field"><span>{label}</span><div><input type="color" value={value} onChange={e => onChange(e.target.value)} /><code>{value.toUpperCase()}</code></div></label>;
+}
+
+function BrandHeaderPreview({ company }) {
+  const previewCompany = { ...DEFAULT_COMPANY_BRAND, ...company, name: company.name || 'Nombre de la empresa' };
+  return <div className="brand-header-preview" style={companyTheme(previewCompany)}>
+    <header className={`contact-brand ${previewCompany.header_effect === false ? 'no-effect' : 'has-effect'}`}>
+      <CompanyIdentity company={previewCompany} />
+    </header>
+    <small>Vista previa del encabezado</small>
+  </div>;
+}
+
+function CompanyBrandFields({ form, setForm, logoFile, setLogoFile }) {
+  return <section className="brand-settings">
+    <div className="settings-heading"><strong>Identidad de la tarjeta</strong><span>Estos ajustes se aplicarán a todos los integrantes de la empresa.</span></div>
+    <label className="field logo-upload"><span>Logotipo de la empresa</span><input type="file" accept=".png,.jpg,.jpeg,.webp,.svg,image/png,image/jpeg,image/webp,image/svg+xml" onChange={e => setLogoFile(e.target.files?.[0] || null)} /><small>{logoFile ? logoFile.name : form.logo_url ? 'Logo actual configurado. Elige otro archivo para reemplazarlo.' : 'PNG, JPG, WebP o SVG · máximo 2 MB'}</small></label>
+    {form.logo_url && <button className="remove-logo" type="button" onClick={() => { setLogoFile(null); setForm({ ...form, logo_url: '' }); }}>Quitar logo y usar iniciales</button>}
+    <div className="two-cols">
+      <label className="field"><span>Formato del logo</span><select value={form.logo_layout || 'auto'} onChange={e => setForm({ ...form, logo_layout: e.target.value })}><option value="auto">Automático</option><option value="compact">Compacto / isotipo</option><option value="horizontal">Horizontal</option></select></label>
+      <Field label="Iniciales de respaldo" value={form.logo_text || ''} onChange={v => setForm({ ...form, logo_text: v })} placeholder="Ej. SD" />
+    </div>
+    <label className="setting-check"><input type="checkbox" checked={form.show_brand_text === true} onChange={e => setForm({ ...form, show_brand_text: e.target.checked })} /><span><strong>Mostrar nombre bajo el logo</strong><small>Úsalo cuando el archivo contenga solamente el símbolo de la empresa.</small></span></label>
+    <div className="color-grid">
+      <ColorField label="Fondo del encabezado" value={form.header_color || DEFAULT_COMPANY_BRAND.header_color} onChange={v => setForm({ ...form, header_color: v })} />
+      <ColorField label="Color principal" value={form.primary_color || DEFAULT_COMPANY_BRAND.primary_color} onChange={v => setForm({ ...form, primary_color: v })} />
+      <ColorField label="Color secundario" value={form.secondary_color || DEFAULT_COMPANY_BRAND.secondary_color} onChange={v => setForm({ ...form, secondary_color: v })} />
+      <ColorField label="Botón principal" value={form.button_color || DEFAULT_COMPANY_BRAND.button_color} onChange={v => setForm({ ...form, button_color: v })} />
+    </div>
+    <label className="setting-check"><input type="checkbox" checked={form.header_effect !== false} onChange={e => setForm({ ...form, header_effect: e.target.checked })} /><span><strong>Iluminación corporativa suave</strong><small>Genera profundidad usando los colores elegidos, sin cargar imágenes de fondo.</small></span></label>
+    <BrandHeaderPreview company={form} />
+  </section>;
+}
+
 function ContactPreferences({ form, setForm }) {
   const disabled = !String(form.phone || '').trim();
   return <fieldset className="contact-preferences">
@@ -232,8 +294,33 @@ function PublicContact({ companySlug, contactSlug }) {
   return <main className="public-shell"><ContactCard {...data} /></main>;
 }
 
+function CompanyIdentity({ company }) {
+  const [logoFailed, setLogoFailed] = useState(false);
+  useEffect(() => setLogoFailed(false), [company.logo_url]);
+  const hasLogo = Boolean(company.logo_url) && !logoFailed;
+  const showText = !hasLogo || company.show_brand_text === true;
+  const layout = ['auto', 'compact', 'horizontal'].includes(company.logo_layout) ? company.logo_layout : 'auto';
+  return <div className={`company-identity logo-${layout}`}>
+    {hasLogo
+      ? <img className="company-logo" src={company.logo_url} alt={`Logo de ${company.name}`} onError={() => setLogoFailed(true)} />
+      : <div className="company-mark">{company.logo_text || company.name.slice(0, 2).toUpperCase()}</div>}
+    {showText && <div className="company-brand-copy">
+      <strong>{company.name.toUpperCase()}</strong>
+      {company.tagline && <small>{company.tagline}</small>}
+    </div>}
+  </div>;
+}
+
+function companyTheme(company) {
+  return {
+    '--accent': company.primary_color || DEFAULT_COMPANY_BRAND.primary_color,
+    '--header': company.header_color || DEFAULT_COMPANY_BRAND.header_color,
+    '--secondary': company.secondary_color || DEFAULT_COMPANY_BRAND.secondary_color,
+    '--button': company.button_color || company.primary_color || DEFAULT_COMPANY_BRAND.button_color
+  };
+}
+
 function ContactCard({ company, contact, preview = false }) {
-  const color = company.primary_color || '#17499b';
   const name = `${contact.first_name || 'Nombre'} ${contact.last_name || ''}`.trim();
   const showCall = Boolean(contact.phone) && contact.show_call !== false;
   const showWhatsApp = Boolean(contact.phone) && contact.show_whatsapp === true;
@@ -251,11 +338,9 @@ function ContactCard({ company, contact, preview = false }) {
     const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/vcard;charset=utf-8' }));
     const a = document.createElement('a'); a.href = url; a.download = `${slugify(name)}.vcf`; a.click(); URL.revokeObjectURL(url);
   }
-  return <article className="contact-card" style={{ '--accent': color }}>
-    <header className="contact-brand">
-      <div className="company-mark">{company.logo_text || company.name.slice(0, 2).toUpperCase()}</div>
-      <strong>{company.name.toUpperCase()}</strong>
-      {company.tagline && <small>{company.tagline}</small>}
+  return <article className="contact-card" style={companyTheme(company)}>
+    <header className={`contact-brand ${company.header_effect === false ? 'no-effect' : 'has-effect'}`}>
+      <CompanyIdentity company={company} />
     </header>
     <section className="contact-profile">
       <h1>{name}</h1><p>{contact.role || 'Cargo profesional'}</p>
@@ -308,8 +393,10 @@ function AdminDashboard({ session }) {
   const [contacts, setContacts] = useState([]);
   const [tab, setTab] = useState('requests');
   const [selected, setSelected] = useState(null);
+  const [selectedCompany, setSelectedCompany] = useState(null);
   const [notice, setNotice] = useState('');
-  const [newCompany, setNewCompany] = useState({ name: '', slug: '', access_code: '', logo_text: '', tagline: '', address: '', website: '', instagram: '', primary_color: '#111827' });
+  const [newCompany, setNewCompany] = useState(emptyCompany);
+  const [newLogoFile, setNewLogoFile] = useState(null);
 
   async function load() {
     const [{ data: cs }, { data: people }] = await Promise.all([
@@ -322,10 +409,17 @@ function AdminDashboard({ session }) {
 
   async function createCompany(e) {
     e.preventDefault(); setNotice('');
-    const payload = { ...newCompany, slug: newCompany.slug || slugify(newCompany.name), access_code: newCompany.access_code.toUpperCase() };
+    const companySlug = newCompany.slug || slugify(newCompany.name);
+    let logoUrl = newCompany.logo_url || null;
+    try {
+      if (newLogoFile) logoUrl = await uploadCompanyLogo(newLogoFile, companySlug);
+    } catch (uploadError) {
+      return setNotice(uploadError.message);
+    }
+    const payload = { ...newCompany, logo_url: logoUrl, slug: companySlug, access_code: newCompany.access_code.toUpperCase() };
     const { error } = await supabase.from('nfc_companies').insert(payload);
     if (error) return setNotice('No se pudo crear la empresa. Revisa que el código y la dirección sean únicos.');
-    setNewCompany({ name: '', slug: '', access_code: '', logo_text: '', tagline: '', address: '', website: '', instagram: '', primary_color: '#111827' });
+    setNewCompany(emptyCompany()); setNewLogoFile(null);
     setNotice('Empresa creada correctamente.'); load();
   }
 
@@ -351,13 +445,74 @@ function AdminDashboard({ session }) {
           const company = companyFor(contact.company_id); const publicUrl = contact.slug ? `${window.location.origin}/contacto/${company?.slug}/${contact.slug}` : '';
           return <article className="request-card" key={contact.id}><div className="request-avatar">{initials(contact.first_name, contact.last_name)}</div><div className="request-info"><strong>{contact.first_name} {contact.last_name}</strong><span>{contact.role} · {company?.name}</span><small>{[contact.email, contact.phone].filter(Boolean).join(' · ') || 'Sin datos de contacto'}</small></div><span className={`status status-${contact.status}`}>{STATUS[contact.status]}</span><div className="request-actions"><button onClick={() => setSelected({ ...contact })}>Revisar</button>{contact.status === 'pending' && <button className="accent-action" onClick={() => quickStatus(contact, 'published')}>Publicar</button>}{publicUrl && <button title="Copiar URL" onClick={() => copy(publicUrl)}><Copy size={17} /></button>}{contact.status === 'published' && <button onClick={() => quickStatus(contact, 'nfc_programmed')}>NFC listo</button>}{contact.status === 'nfc_programmed' && <button onClick={() => quickStatus(contact, 'delivered')}>Entregado</button>}</div></article>;
         })}</div>
-      </> : <div className="companies-layout"><section><h2>Empresas activas</h2>{companies.map(c => <article className="company-row" key={c.id}><span className="company-mini" style={{ background: c.primary_color }}>{c.logo_text || c.name.slice(0,2)}</span><div><strong>{c.name}</strong><small>Código: {c.access_code}</small></div><button onClick={() => copy(`${window.location.origin}/empresa/${c.access_code}`)}><Copy size={16} /> Copiar formulario</button></article>)}</section><section className="new-company"><h2>Nueva empresa</h2><form onSubmit={createCompany}><Field label="Nombre" value={newCompany.name} onChange={v => setNewCompany({ ...newCompany, name: v })} required /><div className="two-cols"><Field label="Código de acceso" value={newCompany.access_code} onChange={v => setNewCompany({ ...newCompany, access_code: v })} required /><Field label="Iniciales del logo" value={newCompany.logo_text} onChange={v => setNewCompany({ ...newCompany, logo_text: v })} /></div><Field label="Bajada de marca" value={newCompany.tagline} onChange={v => setNewCompany({ ...newCompany, tagline: v })} /><Field label="Dirección" value={newCompany.address} onChange={v => setNewCompany({ ...newCompany, address: v })} /><Field label="Sitio web" value={newCompany.website} onChange={v => setNewCompany({ ...newCompany, website: v })} /><Field label="Instagram" value={newCompany.instagram} onChange={v => setNewCompany({ ...newCompany, instagram: v })} /><label className="field"><span>Color corporativo</span><input type="color" value={newCompany.primary_color} onChange={e => setNewCompany({ ...newCompany, primary_color: e.target.value })} /></label><button className="primary-button"><Plus size={18} />Crear empresa</button></form></section></div>}
+      </> : <div className="companies-layout">
+        <section><h2>Empresas activas</h2>{companies.map(c => <article className="company-row" key={c.id}>
+          <span className="company-mini" style={{ background: c.header_color || c.primary_color }}>{c.logo_url ? <img src={c.logo_url} alt="" /> : (c.logo_text || c.name.slice(0,2))}</span>
+          <div><strong>{c.name}</strong><small>Código: {c.access_code}</small></div>
+          <div className="company-actions"><button onClick={() => setSelectedCompany({ ...c })}>Configurar</button><button onClick={() => copy(`${window.location.origin}/empresa/${c.access_code}`)}><Copy size={16} /> Copiar formulario</button></div>
+        </article>)}</section>
+        <section className="new-company"><h2>Nueva empresa</h2><form onSubmit={createCompany}>
+          <Field label="Nombre" value={newCompany.name} onChange={v => setNewCompany({ ...newCompany, name: v })} required />
+          <div className="two-cols"><Field label="Código de acceso" value={newCompany.access_code} onChange={v => setNewCompany({ ...newCompany, access_code: v })} required /><Field label="Dirección web de la empresa" value={newCompany.slug} onChange={v => setNewCompany({ ...newCompany, slug: slugify(v) })} placeholder="Se genera automáticamente" /></div>
+          <Field label="Bajada de marca" value={newCompany.tagline} onChange={v => setNewCompany({ ...newCompany, tagline: v })} />
+          <Field label="Dirección" value={newCompany.address} onChange={v => setNewCompany({ ...newCompany, address: v })} />
+          <Field label="Sitio web" value={newCompany.website} onChange={v => setNewCompany({ ...newCompany, website: v })} />
+          <Field label="Instagram" value={newCompany.instagram} onChange={v => setNewCompany({ ...newCompany, instagram: v })} />
+          <CompanyBrandFields form={newCompany} setForm={setNewCompany} logoFile={newLogoFile} setLogoFile={setNewLogoFile} />
+          <button className="primary-button"><Plus size={18} />Crear empresa</button>
+        </form></section>
+      </div>}
     </section>
     {selected && <EditContact contact={selected} company={companyFor(selected.company_id)} onClose={() => setSelected(null)} onSaved={() => { setSelected(null); load(); setNotice('Contacto actualizado.'); }} />}
+    {selectedCompany && <EditCompany company={selectedCompany} onClose={() => setSelectedCompany(null)} onSaved={() => { setSelectedCompany(null); load(); setNotice('Configuración de empresa actualizada.'); }} />}
   </main>;
 }
 
 function Stat({ label, value }) { return <div className="stat"><span>{label}</span><strong>{value}</strong></div>; }
+
+function EditCompany({ company, onClose, onSaved }) {
+  const [form, setForm] = useState({ ...DEFAULT_COMPANY_BRAND, ...company });
+  const [logoFile, setLogoFile] = useState(null);
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  async function save(e) {
+    e.preventDefault(); setError(''); setSaving(true);
+    let logoUrl = form.logo_url || null;
+    try {
+      if (logoFile) logoUrl = await uploadCompanyLogo(logoFile, form.slug || form.name);
+    } catch (uploadError) {
+      setSaving(false); return setError(uploadError.message);
+    }
+    const payload = {
+      name: String(form.name || '').trim(), slug: slugify(form.slug || form.name), access_code: String(form.access_code || '').trim().toUpperCase(),
+      logo_text: String(form.logo_text || '').trim() || null, logo_url: logoUrl, logo_layout: form.logo_layout,
+      show_brand_text: form.show_brand_text === true, tagline: String(form.tagline || '').trim() || null,
+      address: String(form.address || '').trim() || null, website: String(form.website || '').trim() || null, instagram: String(form.instagram || '').trim() || null,
+      primary_color: form.primary_color, header_color: form.header_color, secondary_color: form.secondary_color,
+      button_color: form.button_color, header_effect: form.header_effect !== false, enabled: form.enabled !== false,
+      updated_at: new Date().toISOString()
+    };
+    const { error: updateError } = await supabase.from('nfc_companies').update(payload).eq('id', company.id);
+    setSaving(false);
+    if (updateError) setError(`No se pudo guardar: ${updateError.message}`); else onSaved();
+  }
+  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal company-modal" onMouseDown={e => e.stopPropagation()}>
+    <header><div><span>Configuración corporativa</span><h2>{company.name}</h2></div><button onClick={onClose}>×</button></header>
+    <form onSubmit={save}>
+      <div className="company-editor-grid"><div>
+        <Field label="Nombre" value={form.name} onChange={v => setForm({ ...form, name: v })} required />
+        <div className="two-cols"><Field label="Código de acceso" value={form.access_code} onChange={v => setForm({ ...form, access_code: v })} required /><Field label="Dirección web de la empresa" value={form.slug} onChange={v => setForm({ ...form, slug: slugify(v) })} required /></div>
+        <Field label="Bajada de marca" value={form.tagline || ''} onChange={v => setForm({ ...form, tagline: v })} />
+        <Field label="Dirección" value={form.address || ''} onChange={v => setForm({ ...form, address: v })} />
+        <Field label="Sitio web" value={form.website || ''} onChange={v => setForm({ ...form, website: v })} />
+        <Field label="Instagram" value={form.instagram || ''} onChange={v => setForm({ ...form, instagram: v })} />
+        <label className="setting-check"><input type="checkbox" checked={form.enabled !== false} onChange={e => setForm({ ...form, enabled: e.target.checked })} /><span><strong>Empresa activa</strong><small>Permite nuevos formularios y mantiene visibles las tarjetas publicadas.</small></span></label>
+      </div><CompanyBrandFields form={form} setForm={setForm} logoFile={logoFile} setLogoFile={setLogoFile} /></div>
+      {error && <p className="form-error">{error}</p>}
+      <div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button" disabled={saving}><Save size={17} />{saving ? 'Guardando…' : 'Guardar configuración'}</button></div>
+    </form>
+  </section></div>;
+}
 
 function EditContact({ contact, company, onClose, onSaved }) {
   const [form, setForm] = useState(contact);

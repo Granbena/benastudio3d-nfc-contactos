@@ -90,3 +90,54 @@
   .site-footer nav{flex-wrap:wrap;justify-content:center}
   .contact-preferences>div{grid-template-columns:1fr}
 }
+
+/* Scalable per-company identity system. */
+.contact-brand{position:relative;isolation:isolate;display:grid;min-height:158px;place-items:center;overflow:hidden;padding:24px;border-bottom:4px solid var(--accent);background:var(--header)}
+.contact-brand.has-effect::before,.contact-brand.has-effect::after{position:absolute;z-index:-1;width:240px;height:240px;border-radius:50%;content:"";filter:blur(22px);opacity:.3;pointer-events:none}
+.contact-brand.has-effect::before{top:-155px;left:-85px;background:var(--secondary)}
+.contact-brand.has-effect::after{right:-100px;bottom:-175px;background:var(--accent)}
+.company-identity{position:relative;z-index:1;display:flex;max-width:100%;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center}
+.company-logo{display:block;max-width:100%;object-fit:contain}
+.company-identity.logo-auto .company-logo{width:auto;max-width:260px;height:auto;max-height:100px}
+.company-identity.logo-compact .company-logo{width:auto;max-width:170px;height:auto;max-height:112px}
+.company-identity.logo-horizontal .company-logo{width:auto;max-width:310px;height:auto;max-height:88px}
+.contact-brand .company-mark{color:var(--secondary);font:800 54px/.95 Manrope;letter-spacing:-.07em}
+.company-brand-copy strong,.company-brand-copy small{display:block;color:#fff}
+.company-brand-copy strong{font:800 13px Manrope;letter-spacing:.18em}
+.company-brand-copy small{margin-top:5px;color:rgba(255,255,255,.68);font-size:10px;font-weight:700;letter-spacing:.12em}
+.save-contact{background:var(--button);box-shadow:0 10px 22px color-mix(in srgb,var(--button) 28%,transparent)}
+.brand-settings{margin:20px 0;padding:18px;border:1px solid #dbe3ef;border-radius:15px;background:#f8fafc}
+.settings-heading{margin-bottom:16px}
+.settings-heading strong,.settings-heading span{display:block}
+.settings-heading strong{font:800 16px Manrope}
+.settings-heading span{margin-top:4px;color:#667085;font-size:12px;line-height:1.4}
+.logo-upload input{padding:9px;background:#fff}
+.logo-upload small{display:block;margin-top:7px;color:#667085;font-size:11px}
+.remove-logo{margin:-8px 0 15px;padding:0;border:0;color:#b42318;background:transparent;font-size:12px;font-weight:700}
+.color-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.color-field>div{display:flex;align-items:center;gap:9px;padding:6px;border:1px solid #d0d5dd;border-radius:10px;background:#fff}
+.color-field input[type=color]{width:52px;height:34px;padding:0;border:0;border-radius:7px;background:transparent}
+.color-field code{color:#475467;font:700 11px/1 monospace}
+.setting-check{display:flex;align-items:flex-start;gap:10px;margin:4px 0 16px;padding:11px;border:1px solid #d0d5dd;border-radius:11px;background:#fff}
+.setting-check input{width:17px;height:17px;margin-top:2px;accent-color:#2563eb}
+.setting-check strong,.setting-check small{display:block}
+.setting-check strong{font-size:12px}.setting-check small{margin-top:3px;color:#667085;font-size:11px;line-height:1.35}
+.brand-header-preview{overflow:hidden;margin-top:8px;border:1px solid #d0d5dd;border-radius:16px;background:#fff}
+.brand-header-preview .contact-brand{min-height:145px;border-bottom-width:3px}
+.brand-header-preview>small{display:block;padding:9px;text-align:center;color:#667085;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em}
+.company-mini{overflow:hidden;padding:5px;background:#111827}
+.company-mini img{display:block;width:100%;height:100%;object-fit:contain}
+.company-actions{display:flex;gap:7px;justify-content:flex-end}
+.company-modal{width:min(100%,980px)}
+.company-editor-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;align-items:start}
+.company-editor-grid .brand-settings{margin-top:0}
+
+@media(max-width:760px){
+  .company-editor-grid{grid-template-columns:1fr}
+  .color-grid{grid-template-columns:1fr}
+  .company-actions{grid-column:2;justify-content:flex-start;flex-wrap:wrap}
+  .contact-brand{min-height:142px;padding:20px}
+  .company-identity.logo-compact .company-logo{max-height:94px}
+  .company-identity.logo-horizontal .company-logo{max-width:270px;max-height:78px}
+  .preview-panel{display:block}
+}
