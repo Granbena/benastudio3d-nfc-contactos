@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import {
   ArrowLeft, Building2, Check, CheckCircle2, Clipboard, Copy, ExternalLink,
-  Globe2, Instagram, LogOut, Mail, MapPin, MessageCircle, Nfc, Phone, Plus,
+  Globe2, Instagram, LogOut, Mail, MapPin, Nfc, Phone, Plus,
   Save, ShieldCheck, Sparkles, UserRound, XCircle
 } from 'lucide-react';
 import './styles.css';
@@ -41,6 +41,20 @@ function whatsappUrl(phone) {
   return digits ? `https://wa.me/${digits}` : '';
 }
 
+function WhatsAppIcon({ size = 24, className = '' }) {
+  return <svg
+    className={className}
+    width={size}
+    height={size}
+    viewBox="0 0 24 24"
+    fill="currentColor"
+    aria-hidden="true"
+    focusable="false"
+  >
+    <path d="M12.04 2c-5.46 0-9.91 4.45-9.91 9.91 0 1.75.46 3.45 1.35 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91A9.91 9.91 0 0 0 12.04 2m5.78 14.02c-.24.68-1.41 1.3-1.97 1.38-.5.08-1.14.11-1.84-.11-.42-.13-.96-.31-1.65-.61-2.9-1.25-4.79-4.18-4.94-4.38-.14-.19-1.18-1.57-1.18-3s.75-2.13 1.01-2.42c.26-.29.58-.36.77-.36h.55c.18 0 .41-.07.64.49.24.58.81 1.98.88 2.13.07.14.12.31.02.5-.1.19-.14.31-.29.48-.14.17-.3.38-.43.51-.14.14-.29.3-.12.59.17.29.75 1.24 1.61 2.01 1.11.99 2.04 1.3 2.33 1.45.29.14.46.12.63-.07.17-.19.72-.84.91-1.13.19-.29.39-.24.65-.14.26.1 1.67.79 1.96.94.29.14.48.22.55.34.07.12.07.7-.17 1.38Z" />
+  </svg>;
+}
+
 function initials(first = '', last = '') {
   return `${first.trim()[0] || ''}${last.trim()[0] || ''}`.toUpperCase();
 }
@@ -70,7 +84,7 @@ function Home() {
         <h1>Tu información profesional, siempre actualizada.</h1>
         <p>Creamos tarjetas digitales NFC para empresas y profesionales. Comparte tus datos, redes y medios de contacto con un solo toque.</p>
         <a className="quote-button" href={WHATSAPP_QUOTE_URL} target="_blank" rel="noreferrer">
-          <MessageCircle size={20} /> Cotizar para mi empresa
+          <WhatsAppIcon size={20} /> Cotizar para mi empresa
         </a>
         <form className="code-box" onSubmit={enter}>
           <div className="code-heading"><strong>¿Ya eres cliente?</strong><span>Ingresa el código entregado a tu empresa.</span></div>
@@ -100,11 +114,11 @@ function Home() {
         <article><span>02</span><h3>Personalizamos las tarjetas</h3><p>Adaptamos el diseño con la identidad de tu empresa y recopilamos los datos autorizados.</p></article>
         <article><span>03</span><h3>Entregamos tus productos NFC listos</h3><p>Programamos cada producto NFC con su tarjeta digital, lista para compartir y actualizar.</p></article>
       </div>
-      <a className="quote-button process-cta" href={WHATSAPP_QUOTE_URL} target="_blank" rel="noreferrer"><MessageCircle size={20} /> Quiero cotizar</a>
+      <a className="quote-button process-cta" href={WHATSAPP_QUOTE_URL} target="_blank" rel="noreferrer"><WhatsAppIcon size={20} /> Quiero cotizar</a>
     </section>
     <footer className="site-footer">
       <span>Diseñado y administrado por BenaStudio3D</span>
-      <nav><a href="https://www.instagram.com/benastudio3d/" target="_blank" rel="noreferrer"><Instagram size={15} /> Instagram</a><a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noreferrer"><MessageCircle size={15} /> WhatsApp</a><button onClick={() => go('/admin')}>Administración</button></nav>
+      <nav><a href="https://www.instagram.com/benastudio3d/" target="_blank" rel="noreferrer"><Instagram size={15} /> Instagram</a><a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noreferrer"><WhatsAppIcon size={15} /> WhatsApp</a><button onClick={() => go('/admin')}>Administración</button></nav>
     </footer>
   </main>;
 }
@@ -169,7 +183,7 @@ function CompanyForm({ code }) {
         <aside className="update-request-box">
           <strong>¿Ya tienes una tarjeta publicada?</strong>
           <p>Solicita cambios en tu cargo, teléfono, correo u otros datos.</p>
-          <a href={updateRequestUrl} target="_blank" rel="noreferrer"><MessageCircle size={18} /> Solicitar actualización por WhatsApp</a>
+          <a href={updateRequestUrl} target="_blank" rel="noreferrer"><WhatsAppIcon size={18} /> Solicitar actualización por WhatsApp</a>
         </aside>
       </section>
       <aside className="preview-panel"><span>Vista previa</span><ContactCard company={company} contact={form} preview /></aside>
@@ -189,7 +203,7 @@ function ContactPreferences({ form, setForm }) {
     <div>
       <label className={disabled ? 'disabled' : ''}>
         <input type="checkbox" checked={Boolean(form.show_whatsapp)} disabled={disabled} onChange={e => setForm({ ...form, show_whatsapp: e.target.checked })} />
-        <MessageCircle size={19} />
+        <WhatsAppIcon size={19} />
         <span><strong>WhatsApp</strong><small>Mostrar botón para escribir</small></span>
       </label>
       <label className={disabled ? 'disabled' : ''}>
@@ -248,13 +262,13 @@ function ContactCard({ company, contact, preview = false }) {
     </section>
     <button className="save-contact" onClick={saveVcard} disabled={preview}><Plus size={19} /> Guardar contacto</button>
     {actionCount > 0 && <nav className={`quick-actions actions-${actionCount}`}>
-      {showWhatsApp && <a className="whatsapp-action" href={preview ? undefined : whatsappHref} target={preview ? undefined : '_blank'} rel="noreferrer"><MessageCircle size={22} />WhatsApp</a>}
+      {showWhatsApp && <a className="whatsapp-action" href={preview ? undefined : whatsappHref} target={preview ? undefined : '_blank'} rel="noreferrer"><WhatsAppIcon size={22} />WhatsApp</a>}
       {showCall && <a href={preview ? undefined : `tel:${contact.phone}`}><Phone size={22} />Llamar</a>}
       {showEmail && <a href={preview ? undefined : `mailto:${contact.email}`}><Mail size={22} />Correo</a>}
     </nav>}
     <div className="contact-details">
       {contact.email && <a href={preview ? undefined : `mailto:${contact.email}`}><Mail size={19} /><span>{contact.email}</span></a>}
-      {contact.phone && (showCall || showWhatsApp) && <a href={preview ? undefined : showCall ? `tel:${contact.phone}` : whatsappHref} target={!preview && !showCall ? '_blank' : undefined} rel="noreferrer">{showCall ? <Phone size={19} /> : <MessageCircle size={19} />}<span>{contact.phone}</span></a>}
+      {contact.phone && (showCall || showWhatsApp) && <a href={preview ? undefined : showCall ? `tel:${contact.phone}` : whatsappHref} target={!preview && !showCall ? '_blank' : undefined} rel="noreferrer">{showCall ? <Phone size={19} /> : <WhatsAppIcon size={19} />}<span>{contact.phone}</span></a>}
       {company.address && <a href={preview ? undefined : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`} target="_blank"><MapPin size={19} /><span>{company.address}</span></a>}
       {company.website && <a href={preview ? undefined : cleanUrl(company.website)} target="_blank"><Globe2 size={19} /><span>{company.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span></a>}
       {company.instagram && <a href={preview ? undefined : cleanUrl(company.instagram)} target="_blank"><Instagram size={19} /><span>Instagram</span></a>}
