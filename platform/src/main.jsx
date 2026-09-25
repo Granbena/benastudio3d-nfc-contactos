@@ -90,6 +90,12 @@ function Spinner({ label = 'Cargando…' }) {
   return <div className="center-state"><span className="spinner" /><p>{label}</p></div>;
 }
 
+function usePageTitle(title) {
+  useEffect(() => {
+    document.title = title;
+  }, [title]);
+}
+
 function Brand({ compact = false }) {
   return <button className={`brand-lockup ${compact ? 'compact' : ''}`} onClick={() => go('/')}>
     <span className="brand-b"><img src="/benastudio3d-b-transparent.png" alt="" /></span>
@@ -99,6 +105,7 @@ function Brand({ compact = false }) {
 
 function Home() {
   const [code, setCode] = useState('');
+  usePageTitle('Contactos NFC | BenaStudio3D');
   function enter(e) {
     e.preventDefault();
     if (code.trim()) go(`/empresa/${encodeURIComponent(code.trim().toUpperCase())}`);
@@ -156,6 +163,8 @@ function CompanyForm({ code }) {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
   const [form, setForm] = useState({ first_name: '', last_name: '', role: '', phone: '', email: '', show_call: true, show_whatsapp: true, consent: false });
+
+  usePageTitle(company ? `Crea tu tarjeta | ${company.name}` : 'Contactos NFC | BenaStudio3D');
 
   useEffect(() => {
     supabase.from('nfc_companies').select('*').eq('access_code', decodeURIComponent(code).toUpperCase()).eq('enabled', true).maybeSingle()
@@ -280,6 +289,8 @@ function ContactPreferences({ form, setForm }) {
 function PublicContact({ companySlug, contactSlug }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const contactName = data ? `${data.contact.first_name || ''} ${data.contact.last_name || ''}`.trim() : '';
+  usePageTitle(data ? `${contactName} | ${data.company.name}` : 'Contactos NFC | BenaStudio3D');
   useEffect(() => {
     (async () => {
       const { data: company } = await supabase.from('nfc_companies').select('*').eq('slug', companySlug).maybeSingle();
@@ -369,6 +380,7 @@ function ContactCard({ company, contact, preview = false }) {
 function Admin() {
   const [session, setSession] = useState(null);
   const [checking, setChecking] = useState(true);
+  usePageTitle('Administración | BenaStudio3D');
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => { setSession(data.session); setChecking(false); });
     const { data } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
@@ -533,7 +545,10 @@ function EditContact({ contact, company, onClose, onSaved }) {
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={e => e.stopPropagation()}><header><div><span>{company?.name}</span><h2>Revisar contacto</h2></div><button onClick={onClose}>×</button></header><form onSubmit={save}><div className="two-cols"><Field label="Nombre" value={form.first_name} onChange={v => setForm({ ...form, first_name: v })} required /><Field label="Apellidos" value={form.last_name} onChange={v => setForm({ ...form, last_name: v })} required /></div><Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} required /><div className="two-cols"><Field label="Teléfono (opcional)" value={form.phone || ''} onChange={v => setForm({ ...form, phone: v })} /><Field label="Correo (opcional)" type="email" value={form.email || ''} onChange={v => setForm({ ...form, email: v })} /></div><ContactPreferences form={form} setForm={setForm} /><Field label="Dirección de la tarjeta" value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera al publicar" /><label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{error && <p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div></form></section></div>;
 }
 
-function NotFound({ title, text }) { return <main className="not-found"><XCircle size={50} /><h1>{title}</h1><p>{text}</p><button onClick={() => go('/')}>Volver al inicio</button></main>; }
+function NotFound({ title, text }) {
+  usePageTitle(`${title} | BenaStudio3D`);
+  return <main className="not-found"><XCircle size={50} /><h1>{title}</h1><p>{text}</p><button onClick={() => go('/')}>Volver al inicio</button></main>;
+}
 
 function App() {
   const [path, setPath] = useState(window.location.pathname);
