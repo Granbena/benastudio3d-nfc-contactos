@@ -36,6 +36,11 @@ function cleanUrl(value) {
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
+function whatsappUrl(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits ? `https://wa.me/${digits}` : '';
+}
+
 function initials(first = '', last = '') {
   return `${first.trim()[0] || ''}${last.trim()[0] || ''}`.toUpperCase();
 }
@@ -77,13 +82,13 @@ function Home() {
         <div className="demo-intro">
           <span className="section-kicker"><Sparkles size={15} /> Así funciona</span>
           <h2>Comparte tus datos con un solo toque.</h2>
-          <p>Tus clientes podrán guardar tu contacto, llamarte, enviarte un correo y visitar tus enlaces sin instalar aplicaciones.</p>
+          <p>Tus clientes podrán guardar tu contacto, escribirte por WhatsApp, llamarte, enviarte un correo y visitar tus enlaces sin instalar aplicaciones.</p>
           <div className="benefits"><span>Siempre actualizada</span><span>Sin aplicaciones</span><span>Para todo tu equipo</span></div>
         </div>
         <div className="demo-label"><strong>Ejemplo de tarjeta digital</strong><span>Datos ficticios</span></div>
         <div className="card-stage">
           <div className="nfc-orbit"><Nfc size={30} /></div>
-          <ContactCard company={{ name: 'Nova Soluciones', logo_text: 'NS', tagline: 'SOLUCIONES PARA EMPRESAS', primary_color: '#2563eb', website: 'https://example.com' }} contact={{ first_name: 'Camila', last_name: 'Torres', role: 'Gerenta comercial', phone: '+56 9 0000 0000', email: 'camila@ejemplo.com' }} preview />
+          <ContactCard company={{ name: 'Nova Soluciones', logo_text: 'NS', tagline: 'SOLUCIONES PARA EMPRESAS', primary_color: '#2563eb', website: 'https://example.com' }} contact={{ first_name: 'Camila', last_name: 'Torres', role: 'Gerenta comercial', phone: '+56 9 0000 0000', email: 'camila@ejemplo.com', show_call: true, show_whatsapp: true }} preview />
         </div>
       </div>
     </section>
@@ -109,7 +114,7 @@ function CompanyForm({ code }) {
   const [loading, setLoading] = useState(true);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ first_name: '', last_name: '', role: '', phone: '', email: '', consent: false });
+  const [form, setForm] = useState({ first_name: '', last_name: '', role: '', phone: '', email: '', show_call: true, show_whatsapp: true, consent: false });
 
   useEffect(() => {
     supabase.from('nfc_companies').select('*').eq('access_code', decodeURIComponent(code).toUpperCase()).eq('enabled', true).maybeSingle()
@@ -119,7 +124,16 @@ function CompanyForm({ code }) {
   async function submit(e) {
     e.preventDefault(); setError('');
     if (!form.consent) return setError('Debes autorizar la publicación de los datos.');
-    const { error: insertError } = await supabase.from('nfc_contacts').insert({ ...form, company_id: company.id });
+    const phone = form.phone.trim() || null;
+    const email = form.email.trim() || null;
+    const { error: insertError } = await supabase.from('nfc_contacts').insert({
+      ...form,
+      phone,
+      email,
+      show_call: Boolean(phone && form.show_call),
+      show_whatsapp: Boolean(phone && form.show_whatsapp),
+      company_id: company.id
+    });
     if (insertError) return setError('No pudimos enviar la solicitud. Revisa los datos e inténtalo nuevamente.');
     setSent(true);
   }
@@ -144,9 +158,10 @@ function CompanyForm({ code }) {
           </div>
           <Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} placeholder="Ej. Directora Jurídica" required />
           <div className="two-cols">
-            <Field label="Teléfono" type="tel" value={form.phone} onChange={v => setForm({ ...form, phone: v })} placeholder="+56 9…" required />
-            <Field label="Correo" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} required />
+            <Field label="Teléfono (opcional)" type="tel" value={form.phone} onChange={v => setForm({ ...form, phone: v })} placeholder="+56 9…" />
+            <Field label="Correo (opcional)" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} />
           </div>
+          <ContactPreferences form={form} setForm={setForm} />
           <label className="consent"><input type="checkbox" checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} /><span>Autorizo a publicar estos datos en mi tarjeta digital de contacto.</span></label>
           {error && <p className="form-error">{error}</p>}
           <button className="primary-button" type="submit">Enviar para revisión <Check size={18} /></button>
@@ -164,6 +179,26 @@ function CompanyForm({ code }) {
 
 function Field({ label, value, onChange, type = 'text', required = false, placeholder = '', autoComplete }) {
   return <label className="field"><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} autoComplete={autoComplete} /></label>;
+}
+
+function ContactPreferences({ form, setForm }) {
+  const disabled = !String(form.phone || '').trim();
+  return <fieldset className="contact-preferences">
+    <legend>Opciones del teléfono</legend>
+    <p>Elige qué botones aparecerán en tu tarjeta.</p>
+    <div>
+      <label className={disabled ? 'disabled' : ''}>
+        <input type="checkbox" checked={Boolean(form.show_whatsapp)} disabled={disabled} onChange={e => setForm({ ...form, show_whatsapp: e.target.checked })} />
+        <MessageCircle size={19} />
+        <span><strong>WhatsApp</strong><small>Mostrar botón para escribir</small></span>
+      </label>
+      <label className={disabled ? 'disabled' : ''}>
+        <input type="checkbox" checked={form.show_call !== false} disabled={disabled} onChange={e => setForm({ ...form, show_call: e.target.checked })} />
+        <Phone size={19} />
+        <span><strong>Llamadas</strong><small>Mostrar botón para llamar</small></span>
+      </label>
+    </div>
+  </fieldset>;
 }
 
 function PublicContact({ companySlug, contactSlug }) {
@@ -186,9 +221,16 @@ function PublicContact({ companySlug, contactSlug }) {
 function ContactCard({ company, contact, preview = false }) {
   const color = company.primary_color || '#17499b';
   const name = `${contact.first_name || 'Nombre'} ${contact.last_name || ''}`.trim();
+  const showCall = Boolean(contact.phone) && contact.show_call !== false;
+  const showWhatsApp = Boolean(contact.phone) && contact.show_whatsapp === true;
+  const showEmail = Boolean(contact.email);
+  const actionCount = [showWhatsApp, showCall, showEmail].filter(Boolean).length;
+  const whatsappHref = whatsappUrl(contact.phone);
   function saveVcard() {
     if (preview) return;
-    const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${contact.last_name};${contact.first_name};;;`, `FN:${name}`, `ORG:${company.name}`, `TITLE:${contact.role}`, `TEL;TYPE=CELL:${contact.phone}`, `EMAIL;TYPE=INTERNET:${contact.email}`];
+    const lines = ['BEGIN:VCARD', 'VERSION:3.0', `N:${contact.last_name};${contact.first_name};;;`, `FN:${name}`, `ORG:${company.name}`, `TITLE:${contact.role}`];
+    if (contact.phone && (showCall || showWhatsApp)) lines.push(`TEL;TYPE=CELL:${contact.phone}`);
+    if (contact.email) lines.push(`EMAIL;TYPE=INTERNET:${contact.email}`);
     if (company.website) lines.push(`URL:${cleanUrl(company.website)}`);
     if (company.address) lines.push(`ADR;TYPE=WORK:;;${company.address};;;;`);
     lines.push('END:VCARD');
@@ -205,13 +247,14 @@ function ContactCard({ company, contact, preview = false }) {
       <h1>{name}</h1><p>{contact.role || 'Cargo profesional'}</p>
     </section>
     <button className="save-contact" onClick={saveVcard} disabled={preview}><Plus size={19} /> Guardar contacto</button>
-    <nav className="quick-actions">
-      <a href={preview ? undefined : `tel:${contact.phone}`}><Phone size={22} />Llamar</a>
-      <a href={preview ? undefined : `mailto:${contact.email}`}><Mail size={22} />Correo</a>
-    </nav>
+    {actionCount > 0 && <nav className={`quick-actions actions-${actionCount}`}>
+      {showWhatsApp && <a className="whatsapp-action" href={preview ? undefined : whatsappHref} target={preview ? undefined : '_blank'} rel="noreferrer"><MessageCircle size={22} />WhatsApp</a>}
+      {showCall && <a href={preview ? undefined : `tel:${contact.phone}`}><Phone size={22} />Llamar</a>}
+      {showEmail && <a href={preview ? undefined : `mailto:${contact.email}`}><Mail size={22} />Correo</a>}
+    </nav>}
     <div className="contact-details">
       {contact.email && <a href={preview ? undefined : `mailto:${contact.email}`}><Mail size={19} /><span>{contact.email}</span></a>}
-      {contact.phone && <a href={preview ? undefined : `tel:${contact.phone}`}><Phone size={19} /><span>{contact.phone}</span></a>}
+      {contact.phone && (showCall || showWhatsApp) && <a href={preview ? undefined : showCall ? `tel:${contact.phone}` : whatsappHref} target={!preview && !showCall ? '_blank' : undefined} rel="noreferrer">{showCall ? <Phone size={19} /> : <MessageCircle size={19} />}<span>{contact.phone}</span></a>}
       {company.address && <a href={preview ? undefined : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`} target="_blank"><MapPin size={19} /><span>{company.address}</span></a>}
       {company.website && <a href={preview ? undefined : cleanUrl(company.website)} target="_blank"><Globe2 size={19} /><span>{company.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span></a>}
       {company.instagram && <a href={preview ? undefined : cleanUrl(company.instagram)} target="_blank"><Instagram size={19} /><span>Instagram</span></a>}
@@ -292,7 +335,7 @@ function AdminDashboard({ session }) {
         <div className="stats"><Stat label="Pendientes" value={contacts.filter(c => c.status === 'pending').length} /><Stat label="Publicados" value={contacts.filter(c => ['published','nfc_programmed','delivered'].includes(c.status)).length} /><Stat label="Entregados" value={contacts.filter(c => c.status === 'delivered').length} /></div>
         <div className="admin-list">{contacts.length === 0 ? <p className="empty">Aún no hay solicitudes.</p> : contacts.map(contact => {
           const company = companyFor(contact.company_id); const publicUrl = contact.slug ? `${window.location.origin}/contacto/${company?.slug}/${contact.slug}` : '';
-          return <article className="request-card" key={contact.id}><div className="request-avatar">{initials(contact.first_name, contact.last_name)}</div><div className="request-info"><strong>{contact.first_name} {contact.last_name}</strong><span>{contact.role} · {company?.name}</span><small>{contact.email} · {contact.phone}</small></div><span className={`status status-${contact.status}`}>{STATUS[contact.status]}</span><div className="request-actions"><button onClick={() => setSelected({ ...contact })}>Revisar</button>{contact.status === 'pending' && <button className="accent-action" onClick={() => quickStatus(contact, 'published')}>Publicar</button>}{publicUrl && <button title="Copiar URL" onClick={() => copy(publicUrl)}><Copy size={17} /></button>}{contact.status === 'published' && <button onClick={() => quickStatus(contact, 'nfc_programmed')}>NFC listo</button>}{contact.status === 'nfc_programmed' && <button onClick={() => quickStatus(contact, 'delivered')}>Entregado</button>}</div></article>;
+          return <article className="request-card" key={contact.id}><div className="request-avatar">{initials(contact.first_name, contact.last_name)}</div><div className="request-info"><strong>{contact.first_name} {contact.last_name}</strong><span>{contact.role} · {company?.name}</span><small>{[contact.email, contact.phone].filter(Boolean).join(' · ') || 'Sin datos de contacto'}</small></div><span className={`status status-${contact.status}`}>{STATUS[contact.status]}</span><div className="request-actions"><button onClick={() => setSelected({ ...contact })}>Revisar</button>{contact.status === 'pending' && <button className="accent-action" onClick={() => quickStatus(contact, 'published')}>Publicar</button>}{publicUrl && <button title="Copiar URL" onClick={() => copy(publicUrl)}><Copy size={17} /></button>}{contact.status === 'published' && <button onClick={() => quickStatus(contact, 'nfc_programmed')}>NFC listo</button>}{contact.status === 'nfc_programmed' && <button onClick={() => quickStatus(contact, 'delivered')}>Entregado</button>}</div></article>;
         })}</div>
       </> : <div className="companies-layout"><section><h2>Empresas activas</h2>{companies.map(c => <article className="company-row" key={c.id}><span className="company-mini" style={{ background: c.primary_color }}>{c.logo_text || c.name.slice(0,2)}</span><div><strong>{c.name}</strong><small>Código: {c.access_code}</small></div><button onClick={() => copy(`${window.location.origin}/empresa/${c.access_code}`)}><Copy size={16} /> Copiar formulario</button></article>)}</section><section className="new-company"><h2>Nueva empresa</h2><form onSubmit={createCompany}><Field label="Nombre" value={newCompany.name} onChange={v => setNewCompany({ ...newCompany, name: v })} required /><div className="two-cols"><Field label="Código de acceso" value={newCompany.access_code} onChange={v => setNewCompany({ ...newCompany, access_code: v })} required /><Field label="Iniciales del logo" value={newCompany.logo_text} onChange={v => setNewCompany({ ...newCompany, logo_text: v })} /></div><Field label="Bajada de marca" value={newCompany.tagline} onChange={v => setNewCompany({ ...newCompany, tagline: v })} /><Field label="Dirección" value={newCompany.address} onChange={v => setNewCompany({ ...newCompany, address: v })} /><Field label="Sitio web" value={newCompany.website} onChange={v => setNewCompany({ ...newCompany, website: v })} /><Field label="Instagram" value={newCompany.instagram} onChange={v => setNewCompany({ ...newCompany, instagram: v })} /><label className="field"><span>Color corporativo</span><input type="color" value={newCompany.primary_color} onChange={e => setNewCompany({ ...newCompany, primary_color: e.target.value })} /></label><button className="primary-button"><Plus size={18} />Crear empresa</button></form></section></div>}
     </section>
@@ -307,13 +350,14 @@ function EditContact({ contact, company, onClose, onSaved }) {
   const [error, setError] = useState('');
   async function save(e) {
     e.preventDefault();
-    const payload = { first_name: form.first_name, last_name: form.last_name, role: form.role, phone: form.phone, email: form.email, photo_url: form.photo_url || null, slug: form.slug || null, status: form.status, updated_at: new Date().toISOString() };
+    const phone = String(form.phone || '').trim() || null;
+    const payload = { first_name: form.first_name, last_name: form.last_name, role: form.role, phone, email: String(form.email || '').trim() || null, show_call: Boolean(phone && form.show_call), show_whatsapp: Boolean(phone && form.show_whatsapp), photo_url: form.photo_url || null, slug: form.slug || null, status: form.status, updated_at: new Date().toISOString() };
     if (['published','nfc_programmed','delivered'].includes(payload.status) && !payload.slug) payload.slug = slugify(`${payload.first_name}-${payload.last_name}`);
     if (payload.status === 'published' && !contact.published_at) payload.published_at = new Date().toISOString();
     const { error: updateError } = await supabase.from('nfc_contacts').update(payload).eq('id', contact.id);
     if (updateError) setError(updateError.message); else onSaved();
   }
-  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={e => e.stopPropagation()}><header><div><span>{company?.name}</span><h2>Revisar contacto</h2></div><button onClick={onClose}>×</button></header><form onSubmit={save}><div className="two-cols"><Field label="Nombre" value={form.first_name} onChange={v => setForm({ ...form, first_name: v })} required /><Field label="Apellidos" value={form.last_name} onChange={v => setForm({ ...form, last_name: v })} required /></div><Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} required /><div className="two-cols"><Field label="Teléfono" value={form.phone} onChange={v => setForm({ ...form, phone: v })} required /><Field label="Correo" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} required /></div><Field label="Dirección de la tarjeta" value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera al publicar" /><label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{error && <p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div></form></section></div>;
+  return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={e => e.stopPropagation()}><header><div><span>{company?.name}</span><h2>Revisar contacto</h2></div><button onClick={onClose}>×</button></header><form onSubmit={save}><div className="two-cols"><Field label="Nombre" value={form.first_name} onChange={v => setForm({ ...form, first_name: v })} required /><Field label="Apellidos" value={form.last_name} onChange={v => setForm({ ...form, last_name: v })} required /></div><Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} required /><div className="two-cols"><Field label="Teléfono (opcional)" value={form.phone || ''} onChange={v => setForm({ ...form, phone: v })} /><Field label="Correo (opcional)" type="email" value={form.email || ''} onChange={v => setForm({ ...form, email: v })} /></div><ContactPreferences form={form} setForm={setForm} /><Field label="Dirección de la tarjeta" value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera al publicar" /><label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{error && <p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div></form></section></div>;
 }
 
 function NotFound({ title, text }) { return <main className="not-found"><XCircle size={50} /><h1>{title}</h1><p>{text}</p><button onClick={() => go('/')}>Volver al inicio</button></main>; }
