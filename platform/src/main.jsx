@@ -300,12 +300,16 @@ function CompanyIdentity({ company }) {
   const hasLogo = Boolean(company.logo_url) && !logoFailed;
   const showText = !hasLogo || company.show_brand_text === true;
   const layout = ['auto', 'compact', 'horizontal'].includes(company.logo_layout) ? company.logo_layout : 'auto';
-  return <div className={`company-identity logo-${layout}`}>
+  const brandWords = String(company.name || '').trim().split(/\s+/);
+  const splitHorizontalName = layout === 'horizontal' && brandWords.length > 1;
+  return <div className={`company-identity logo-${layout} ${hasLogo && showText ? 'with-brand-text' : ''}`}>
     {hasLogo
       ? <img className="company-logo" src={company.logo_url} alt={`Logo de ${company.name}`} onError={() => setLogoFailed(true)} />
       : <div className="company-mark">{company.logo_text || company.name.slice(0, 2).toUpperCase()}</div>}
     {showText && <div className="company-brand-copy">
-      <strong>{company.name.toUpperCase()}</strong>
+      <strong>{splitHorizontalName
+        ? <>{brandWords.slice(0, -1).join(' ')} <em>{brandWords.at(-1)}</em></>
+        : company.name.toUpperCase()}</strong>
       {company.tagline && <small>{company.tagline}</small>}
     </div>}
   </div>;

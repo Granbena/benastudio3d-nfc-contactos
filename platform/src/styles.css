@@ -102,8 +102,12 @@
 .company-identity.logo-compact .company-logo{width:auto;max-width:170px;height:auto;max-height:112px}
 .company-identity.logo-horizontal .company-logo{width:auto;max-width:310px;height:auto;max-height:88px}
 .company-identity.logo-horizontal{flex-direction:row;gap:18px;text-align:left}
+.company-identity.logo-horizontal.with-brand-text .company-logo{width:76px;min-width:76px;height:76px;max-width:76px;max-height:76px;border-radius:13px;background:#fff;box-shadow:0 6px 18px rgba(0,0,0,.16);object-fit:contain}
 .company-identity.logo-horizontal .company-mark{padding-right:18px;border-right:1px solid rgba(255,255,255,.28);font-size:58px;letter-spacing:-.08em}
 .company-identity.logo-horizontal .company-brand-copy strong,.company-identity.logo-horizontal .company-brand-copy small{text-align:left}
+.company-identity.logo-horizontal .company-brand-copy strong{font-size:22px;letter-spacing:-.025em;text-transform:none}
+.company-identity.logo-horizontal .company-brand-copy strong em{color:var(--accent);font-style:normal}
+.company-identity.logo-horizontal .company-brand-copy small{margin-top:6px;font-size:10px;letter-spacing:.28em}
 .contact-brand .company-mark{color:var(--secondary);font:800 54px/.95 Manrope;letter-spacing:-.07em}
 .company-brand-copy strong,.company-brand-copy small{display:block;color:#fff}
 .company-brand-copy strong{font:800 13px Manrope;letter-spacing:.18em}
@@ -142,5 +146,9 @@
   .contact-brand{min-height:142px;padding:20px}
   .company-identity.logo-compact .company-logo{max-height:94px}
   .company-identity.logo-horizontal .company-logo{max-width:270px;max-height:78px}
+  .company-identity.logo-horizontal.with-brand-text{gap:14px}
+  .company-identity.logo-horizontal.with-brand-text .company-logo{width:68px;min-width:68px;height:68px;max-width:68px;max-height:68px}
+  .company-identity.logo-horizontal .company-brand-copy strong{font-size:19px}
+  .company-identity.logo-horizontal .company-brand-copy small{font-size:9px;letter-spacing:.22em}
   .preview-panel{display:block}
 }
