@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { createClient } from '@supabase/supabase-js';
 import {
   ArrowLeft, Building2, Check, CheckCircle2, Clipboard, Copy, ExternalLink,
-  Globe2, Instagram, LogOut, Mail, MapPin, Nfc, Phone, Plus,
+  Globe2, Instagram, Linkedin, LogOut, Mail, MapPin, Nfc, Phone, Plus,
   Save, ShieldCheck, Sparkles, UserRound, XCircle
 } from 'lucide-react';
 import './styles.css';
@@ -28,9 +28,18 @@ const DEFAULT_COMPANY_BRAND = {
   secondary_color: '#60A5FA', button_color: '#2563EB', header_effect: true
 };
 
+function randomAccessCode() {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let suffix = '';
+  const values = new Uint32Array(7);
+  crypto.getRandomValues(values);
+  values.forEach(value => { suffix += alphabet[value % alphabet.length]; });
+  return `NFC-${suffix}`;
+}
+
 function emptyCompany() {
   return {
-    name: '', slug: '', access_code: '', logo_text: '', tagline: '', address: '',
+    name: '', slug: '', access_code: randomAccessCode(), logo_text: '', tagline: '', address: '',
     website: '', instagram: '', enabled: true, ...DEFAULT_COMPANY_BRAND
   };
 }
@@ -137,7 +146,7 @@ function Home() {
         <div className="demo-label"><strong>Ejemplo de tarjeta digital</strong><span>Datos ficticios</span></div>
         <div className="card-stage">
           <div className="nfc-orbit"><Nfc size={30} /></div>
-          <ContactCard company={{ name: 'Nova Soluciones', logo_text: 'NS', tagline: 'SOLUCIONES PARA EMPRESAS', primary_color: '#2563eb', website: 'https://example.com' }} contact={{ first_name: 'Camila', last_name: 'Torres', role: 'Gerenta comercial', phone: '+56 9 0000 0000', email: 'camila@ejemplo.com', show_call: true, show_whatsapp: true }} preview />
+          <ContactCard company={{ name: 'Nova Soluciones', logo_text: 'NS', tagline: 'SOLUCIONES PARA EMPRESAS', primary_color: '#2563eb', website: 'https://example.com' }} contact={{ first_name: 'Camila', last_name: 'Torres', role: 'Gerenta comercial', phone: '+56 9 0000 0000', email: 'camila@ejemplo.com', linkedin: 'linkedin.com/in/camila-torres', show_call: true, show_whatsapp: true }} preview />
         </div>
       </div>
     </section>
@@ -153,7 +162,7 @@ function Home() {
     </section>
     <footer className="site-footer">
       <span>Diseñado y administrado por BenaStudio3D</span>
-      <nav><a href="https://www.instagram.com/benastudio3d/" target="_blank" rel="noreferrer"><Instagram size={15} /> Instagram</a><a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noreferrer"><WhatsAppIcon size={15} /> WhatsApp</a><button onClick={() => go('/admin')}>Administración</button></nav>
+      <nav><a href="https://www.instagram.com/benastudio3d/" target="_blank" rel="noreferrer"><Instagram size={15} /> Instagram</a><a href={WHATSAPP_QUOTE_URL} target="_blank" rel="noreferrer"><WhatsAppIcon size={15} /> WhatsApp</a><button onClick={() => go('/privacidad')}>Privacidad</button><button onClick={() => go('/admin')}>Administración</button></nav>
     </footer>
   </main>;
 }
@@ -163,29 +172,50 @@ function CompanyForm({ code }) {
   const [loading, setLoading] = useState(true);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const [form, setForm] = useState({ first_name: '', last_name: '', role: '', phone: '', email: '', show_call: true, show_whatsapp: true, consent: false });
+  const [sending, setSending] = useState(false);
+  const [form, setForm] = useState({ first_name: '', last_name: '', role: '', phone: '', email: '', linkedin: '', website_confirm: '', show_call: true, show_whatsapp: true, consent: false });
 
   usePageTitle(company ? `Crea tu tarjeta | ${company.name}` : 'Contactos NFC | BenaStudio3D');
 
   useEffect(() => {
-    supabase.from('nfc_companies').select('*').eq('access_code', decodeURIComponent(code).toUpperCase()).eq('enabled', true).maybeSingle()
-      .then(({ data }) => { setCompany(data); setLoading(false); });
+    supabase.rpc('nfc_company_for_form', { p_access_code: decodeURIComponent(code).toUpperCase() })
+      .then(({ data, error: companyError }) => {
+        const resolved = Array.isArray(data) ? data[0] : data;
+        setCompany(companyError ? null : resolved || null);
+        setLoading(false);
+      });
   }, [code]);
 
   async function submit(e) {
     e.preventDefault(); setError('');
     if (!form.consent) return setError('Debes aceptar la autorización para enviar la solicitud.');
-    const phone = form.phone.trim() || null;
-    const email = form.email.trim() || null;
-    const { error: insertError } = await supabase.from('nfc_contacts').insert({
-      ...form,
-      phone,
-      email,
-      show_call: Boolean(phone && form.show_call),
-      show_whatsapp: Boolean(phone && form.show_whatsapp),
-      company_id: company.id
+    setSending(true);
+    const { data, error: submitError } = await supabase.functions.invoke('nfc-submit-contact', {
+      body: {
+        access_code: decodeURIComponent(code).toUpperCase(),
+        first_name: form.first_name,
+        last_name: form.last_name,
+        role: form.role,
+        phone: form.phone,
+        email: form.email,
+        linkedin: form.linkedin,
+        website_confirm: form.website_confirm,
+        show_call: form.show_call,
+        show_whatsapp: form.show_whatsapp,
+        consent: form.consent
+      }
     });
-    if (insertError) return setError('No pudimos enviar la solicitud. Revisa los datos e inténtalo nuevamente.');
+    setSending(false);
+    if (submitError || data?.error) {
+      let message = data?.error || '';
+      if (!message && submitError?.context?.json) {
+        try {
+          const body = await submitError.context.json();
+          message = body?.error || '';
+        } catch (_) {}
+      }
+      return setError(message || 'No pudimos enviar la solicitud. Revisa los datos e inténtalo nuevamente.');
+    }
     setSent(true);
   }
 
@@ -212,13 +242,15 @@ function CompanyForm({ code }) {
             <Field label="Teléfono (opcional)" type="tel" value={form.phone} onChange={v => setForm({ ...form, phone: v })} placeholder="+56 9…" />
             <Field label="Correo (opcional)" type="email" value={form.email} onChange={v => setForm({ ...form, email: v })} />
           </div>
+          <Field label="LinkedIn (opcional)" value={form.linkedin} onChange={v => setForm({ ...form, linkedin: v })} placeholder="linkedin.com/in/tu-perfil" />
+          <label className="honeypot" aria-hidden="true">Sitio web<input tabIndex="-1" autoComplete="off" value={form.website_confirm} onChange={e => setForm({ ...form, website_confirm: e.target.value })} /></label>
           <ContactPreferences form={form} setForm={setForm} />
           <label className="consent">
             <input type="checkbox" checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} required />
             <span><strong>Autorización obligatoria *</strong>Autorizo a BenaStudio3D y a {company.name} a almacenar y publicar los datos ingresados en mi tarjeta digital de contacto. Podré solicitar su modificación o eliminación.<small>Versión {CONSENT_VERSION}</small></span>
           </label>
           {error && <p className="form-error">{error}</p>}
-          <button className="primary-button" type="submit" disabled={!form.consent}>Enviar para revisión <Check size={18} /></button>
+          <button className="primary-button" type="submit" disabled={!form.consent || sending}>{sending ? 'Enviando…' : <>Enviar para revisión <Check size={18} /></>}</button>
         </form>
         <aside className="update-request-box">
           <strong>¿Ya tienes una tarjeta publicada?</strong>
@@ -231,8 +263,8 @@ function CompanyForm({ code }) {
   </main>;
 }
 
-function Field({ label, value, onChange, type = 'text', required = false, placeholder = '', autoComplete }) {
-  return <label className="field"><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} autoComplete={autoComplete} /></label>;
+function Field({ label, value, onChange, type = 'text', required = false, placeholder = '', autoComplete, disabled = false }) {
+  return <label className={`field ${disabled ? 'field-disabled' : ''}`}><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} autoComplete={autoComplete} disabled={disabled} /></label>;
 }
 
 function ColorField({ label, value, onChange }) {
@@ -290,22 +322,22 @@ function ContactPreferences({ form, setForm }) {
   </fieldset>;
 }
 
-function PublicContact({ companySlug, contactSlug }) {
+function PublicContact({ publicId, companySlug, contactSlug }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const contactName = data ? `${data.contact.first_name || ''} ${data.contact.last_name || ''}`.trim() : '';
   usePageTitle(data ? `${contactName} | ${data.company.name}` : 'Contactos NFC | BenaStudio3D');
   useEffect(() => {
     (async () => {
-      const { data: company } = await supabase.from('nfc_companies').select('*').eq('slug', companySlug).maybeSingle();
-      if (!company) return setLoading(false);
-      const { data: contact } = await supabase.from('nfc_contacts')
-        .select('id,company_id,slug,first_name,last_name,role,phone,email,photo_url,status,published_at,nfc_programmed_at,delivered_at,created_at,updated_at,show_call,show_whatsapp')
-        .eq('company_id', company.id).eq('slug', contactSlug).maybeSingle();
-      if (contact) setData({ company, contact });
+      const rpcName = publicId ? 'nfc_public_profile' : 'nfc_public_profile_legacy';
+      const args = publicId
+        ? { p_public_id: publicId }
+        : { p_company_slug: companySlug, p_contact_slug: contactSlug };
+      const { data: resolved, error } = await supabase.rpc(rpcName, args);
+      if (!error && resolved) setData(resolved);
       setLoading(false);
     })();
-  }, [companySlug, contactSlug]);
+  }, [publicId, companySlug, contactSlug]);
   if (loading) return <Spinner label="Abriendo tarjeta…" />;
   if (!data) return <NotFound title="Tarjeta no disponible" text="La dirección puede estar incorrecta o la tarjeta aún no ha sido publicada." />;
   return <main className="public-shell"><ContactCard {...data} /></main>;
@@ -354,6 +386,7 @@ function ContactCard({ company, contact, preview = false }) {
     if (contact.phone && (showCall || showWhatsApp)) lines.push(`TEL;TYPE=CELL:${contact.phone}`);
     if (contact.email) lines.push(`EMAIL;TYPE=INTERNET:${contact.email}`);
     if (company.website) lines.push(`URL:${cleanUrl(company.website)}`);
+    if (contact.linkedin) lines.push(`URL;TYPE=LinkedIn:${cleanUrl(contact.linkedin)}`);
     if (company.address) lines.push(`ADR;TYPE=WORK:;;${company.address};;;;`);
     lines.push('END:VCARD');
     const url = URL.createObjectURL(new Blob([lines.join('\r\n')], { type: 'text/vcard;charset=utf-8' }));
@@ -375,11 +408,12 @@ function ContactCard({ company, contact, preview = false }) {
     <div className="contact-details">
       {contact.email && <a href={preview ? undefined : `mailto:${contact.email}`}><Mail size={19} /><span>{contact.email}</span></a>}
       {contact.phone && (showCall || showWhatsApp) && <a href={preview ? undefined : showCall ? `tel:${contact.phone}` : whatsappHref} target={!preview && !showCall ? '_blank' : undefined} rel="noreferrer">{showCall ? <Phone size={19} /> : <WhatsAppIcon size={19} />}<span>{contact.phone}</span></a>}
-      {company.address && <a href={preview ? undefined : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`} target="_blank"><MapPin size={19} /><span>{company.address}</span></a>}
-      {company.website && <a href={preview ? undefined : cleanUrl(company.website)} target="_blank"><Globe2 size={19} /><span>{company.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span></a>}
-      {company.instagram && <a href={preview ? undefined : cleanUrl(company.instagram)} target="_blank"><Instagram size={19} /><span>Instagram</span></a>}
+      {company.address && <a href={preview ? undefined : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(company.address)}`} target="_blank" rel="noreferrer"><MapPin size={19} /><span>{company.address}</span></a>}
+      {company.website && <a href={preview ? undefined : cleanUrl(company.website)} target="_blank" rel="noreferrer"><Globe2 size={19} /><span>{company.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}</span></a>}
+      {company.instagram && <a href={preview ? undefined : cleanUrl(company.instagram)} target="_blank" rel="noreferrer"><Instagram size={19} /><span>Instagram</span></a>}
+      {contact.linkedin && <a href={preview ? undefined : cleanUrl(contact.linkedin)} target="_blank" rel="noreferrer"><Linkedin size={19} /><span>LinkedIn</span></a>}
     </div>
-    <footer><span className="creator-b">B</span> Creado por BenaStudio3D</footer>
+    <footer><span className="contact-footer-brand"><span className="creator-b">B</span> Creado por BenaStudio3D</span><button className="privacy-link" onClick={() => go('/privacidad')}>Privacidad</button></footer>
   </article>;
 }
 
@@ -447,7 +481,7 @@ function AdminDashboard({ session }) {
 
   async function quickStatus(contact, status) {
     const payload = { status, updated_at: new Date().toISOString() };
-    if (status === 'published') { payload.slug = contact.slug || slugify(`${contact.first_name}-${contact.last_name}`); payload.published_at = contact.published_at || new Date().toISOString(); }
+    if (status === 'published') payload.published_at = contact.published_at || new Date().toISOString();
     if (status === 'nfc_programmed') payload.nfc_programmed_at = new Date().toISOString();
     if (status === 'delivered') payload.delivered_at = new Date().toISOString();
     const { error } = await supabase.from('nfc_contacts').update(payload).eq('id', contact.id);
@@ -464,8 +498,9 @@ function AdminDashboard({ session }) {
       {tab === 'requests' ? <>
         <div className="stats"><Stat label="Pendientes" value={contacts.filter(c => c.status === 'pending').length} /><Stat label="Publicados" value={contacts.filter(c => ['published','nfc_programmed','delivered'].includes(c.status)).length} /><Stat label="Entregados" value={contacts.filter(c => c.status === 'delivered').length} /></div>
         <div className="admin-list">{contacts.length === 0 ? <p className="empty">Aún no hay solicitudes.</p> : contacts.map(contact => {
-          const company = companyFor(contact.company_id); const publicUrl = contact.slug ? `${window.location.origin}/contacto/${company?.slug}/${contact.slug}` : '';
-          return <article className="request-card" key={contact.id}><div className="request-avatar">{initials(contact.first_name, contact.last_name)}</div><div className="request-info"><strong>{contact.first_name} {contact.last_name}</strong><span>{contact.role} · {company?.name}</span><small>{[contact.email, contact.phone].filter(Boolean).join(' · ') || 'Sin datos de contacto'}</small></div><span className={`status status-${contact.status}`}>{STATUS[contact.status]}</span><div className="request-actions"><button onClick={() => setSelected({ ...contact })}>Revisar</button>{contact.status === 'pending' && <button className="accent-action" onClick={() => quickStatus(contact, 'published')}>Publicar</button>}{publicUrl && <button title="Copiar URL" onClick={() => copy(publicUrl)}><Copy size={17} /></button>}{contact.status === 'published' && <button onClick={() => quickStatus(contact, 'nfc_programmed')}>NFC listo</button>}{contact.status === 'nfc_programmed' && <button onClick={() => quickStatus(contact, 'delivered')}>Entregado</button>}</div></article>;
+          const company = companyFor(contact.company_id);
+          const publicUrl = contact.public_id && ['published','nfc_programmed','delivered'].includes(contact.status) ? `${window.location.origin}/c/${contact.public_id}` : '';
+          return <article className="request-card" key={contact.id}><div className="request-avatar">{initials(contact.first_name, contact.last_name)}</div><div className="request-info"><strong>{contact.first_name} {contact.last_name}</strong><span>{contact.role} · {company?.name}</span><small>{[contact.email, contact.phone].filter(Boolean).join(' · ') || 'Sin datos de contacto'}</small></div><span className={`status status-${contact.status}`}>{STATUS[contact.status]}</span><div className="request-actions"><button onClick={() => setSelected({ ...contact })}>Revisar</button>{contact.status === 'pending' && <button className="accent-action" onClick={() => quickStatus(contact, 'published')}>Publicar</button>}{publicUrl && <button title="Copiar URL NFC permanente" onClick={() => copy(publicUrl)}><Copy size={17} /></button>}{contact.status === 'published' && <button onClick={() => quickStatus(contact, 'nfc_programmed')}>NFC listo</button>}{contact.status === 'nfc_programmed' && <button onClick={() => quickStatus(contact, 'delivered')}>Entregado</button>}</div></article>;
         })}</div>
       </> : <div className="companies-layout">
         <section><h2>Empresas activas</h2>{companies.map(c => <article className="company-row" key={c.id}>
@@ -476,6 +511,7 @@ function AdminDashboard({ session }) {
         <section className="new-company"><h2>Nueva empresa</h2><form onSubmit={createCompany}>
           <Field label="Nombre" value={newCompany.name} onChange={v => setNewCompany({ ...newCompany, name: v })} required />
           <div className="two-cols"><Field label="Código de acceso" value={newCompany.access_code} onChange={v => setNewCompany({ ...newCompany, access_code: v })} required /><Field label="Dirección web de la empresa" value={newCompany.slug} onChange={v => setNewCompany({ ...newCompany, slug: slugify(v) })} placeholder="Se genera automáticamente" /></div>
+          <button className="generate-code" type="button" onClick={() => setNewCompany({ ...newCompany, access_code: randomAccessCode() })}>Generar otro código seguro</button>
           <Field label="Bajada de marca" value={newCompany.tagline} onChange={v => setNewCompany({ ...newCompany, tagline: v })} />
           <Field label="Dirección" value={newCompany.address} onChange={v => setNewCompany({ ...newCompany, address: v })} />
           <Field label="Sitio web" value={newCompany.website} onChange={v => setNewCompany({ ...newCompany, website: v })} />
@@ -539,11 +575,11 @@ function EditCompany({ company, onClose, onSaved }) {
 function EditContact({ contact, company, onClose, onSaved }) {
   const [form, setForm] = useState(contact);
   const [error, setError] = useState('');
+  const routeLocked = ['published','nfc_programmed','delivered'].includes(contact.status) && Boolean(contact.slug);
   async function save(e) {
     e.preventDefault();
     const phone = String(form.phone || '').trim() || null;
-    const payload = { first_name: form.first_name, last_name: form.last_name, role: form.role, phone, email: String(form.email || '').trim() || null, show_call: Boolean(phone && form.show_call), show_whatsapp: Boolean(phone && form.show_whatsapp), photo_url: form.photo_url || null, slug: form.slug || null, status: form.status, updated_at: new Date().toISOString() };
-    if (['published','nfc_programmed','delivered'].includes(payload.status) && !payload.slug) payload.slug = slugify(`${payload.first_name}-${payload.last_name}`);
+    const payload = { first_name: form.first_name, last_name: form.last_name, role: form.role, phone, email: String(form.email || '').trim() || null, linkedin: String(form.linkedin || '').trim() || null, show_call: Boolean(phone && form.show_call), show_whatsapp: Boolean(phone && form.show_whatsapp), photo_url: form.photo_url || null, slug: form.slug || null, status: form.status, updated_at: new Date().toISOString() };
     if (payload.status === 'published' && !contact.published_at) payload.published_at = new Date().toISOString();
     const { error: updateError } = await supabase.from('nfc_contacts').update(payload).eq('id', contact.id);
     if (updateError) setError(updateError.message); else onSaved();
@@ -551,8 +587,37 @@ function EditContact({ contact, company, onClose, onSaved }) {
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={e => e.stopPropagation()}>
     <header><div><span>{company?.name}</span><h2>Revisar contacto</h2></div><button onClick={onClose}>×</button></header>
     {contact.consent && <div className="consent-record"><ShieldCheck size={21} /><span><strong>Autorización registrada</strong><small>Respaldo guardado con la solicitud del {new Date(contact.created_at).toLocaleString('es-CL')}.</small></span></div>}
-    <form onSubmit={save}><div className="two-cols"><Field label="Nombre" value={form.first_name} onChange={v => setForm({ ...form, first_name: v })} required /><Field label="Apellidos" value={form.last_name} onChange={v => setForm({ ...form, last_name: v })} required /></div><Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} required /><div className="two-cols"><Field label="Teléfono (opcional)" value={form.phone || ''} onChange={v => setForm({ ...form, phone: v })} /><Field label="Correo (opcional)" type="email" value={form.email || ''} onChange={v => setForm({ ...form, email: v })} /></div><ContactPreferences form={form} setForm={setForm} /><Field label="Dirección de la tarjeta" value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera al publicar" /><label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>{error && <p className="form-error">{error}</p>}<div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div></form>
+    <form onSubmit={save}>
+      <div className="two-cols"><Field label="Nombre" value={form.first_name} onChange={v => setForm({ ...form, first_name: v })} required /><Field label="Apellidos" value={form.last_name} onChange={v => setForm({ ...form, last_name: v })} required /></div>
+      <Field label="Cargo" value={form.role} onChange={v => setForm({ ...form, role: v })} required />
+      <div className="two-cols"><Field label="Teléfono (opcional)" value={form.phone || ''} onChange={v => setForm({ ...form, phone: v })} /><Field label="Correo (opcional)" type="email" value={form.email || ''} onChange={v => setForm({ ...form, email: v })} /></div>
+      <Field label="LinkedIn (opcional)" value={form.linkedin || ''} onChange={v => setForm({ ...form, linkedin: v })} placeholder="linkedin.com/in/tu-perfil" />
+      <ContactPreferences form={form} setForm={setForm} />
+      <Field label={routeLocked ? 'Alias visible de la tarjeta (bloqueado)' : 'Alias visible de la tarjeta'} value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera automáticamente al publicar" disabled={routeLocked} />
+      <div className="permanent-url"><strong>URL NFC permanente</strong><code>{form.public_id ? `${window.location.origin}/c/${form.public_id}` : 'Se generará automáticamente'}</code><small>Esta dirección no cambia aunque edites nombre, cargo o alias.</small></div>
+      <label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
+      {error && <p className="form-error">{error}</p>}
+      <div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div>
+    </form>
   </section></div>;
+}
+
+function Privacy() {
+  usePageTitle('Privacidad | BenaStudio3D');
+  return <main className="legal-shell"><section className="legal-card">
+    <div className="legal-header"><Brand /><button className="text-button legal-back" onClick={() => window.history.length > 1 ? window.history.back() : go('/')}><ArrowLeft size={16} /> Volver</button></div>
+    <h1>Privacidad y datos personales</h1>
+    <p>BenaStudio3D utiliza los datos ingresados en Contactos NFC para crear, publicar y mantener la tarjeta digital solicitada por la persona y su empresa.</p>
+    <h2>Datos tratados</h2>
+    <p>Podemos tratar nombre, apellidos, cargo, teléfono, correo, LinkedIn y los datos corporativos necesarios para mostrar la tarjeta. Solo se publican los datos que corresponden al perfil configurado.</p>
+    <h2>Finalidad</h2>
+    <p>Los datos se usan para prestar el servicio de tarjeta digital NFC, permitir su actualización, gestionar la entrega del producto y atender solicitudes de modificación o eliminación.</p>
+    <h2>Consentimiento y control</h2>
+    <p>La creación de una tarjeta requiere una autorización expresa. BenaStudio3D conserva evidencia de esa autorización y de su versión. Puedes solicitar la modificación o eliminación de tu información en cualquier momento.</p>
+    <h2>Solicitudes</h2>
+    <p>Para modificar o eliminar datos, contáctanos por WhatsApp al +56 9 5405 6277. Antes de realizar cambios podremos solicitar información suficiente para validar la solicitud.</p>
+    <p className="legal-note">Última actualización: 27 de septiembre de 2026.</p>
+  </section></main>;
 }
 
 function NotFound({ title, text }) {
@@ -565,7 +630,9 @@ function App() {
   useEffect(() => { const onPop = () => setPath(window.location.pathname); window.addEventListener('popstate', onPop); return () => window.removeEventListener('popstate', onPop); }, []);
   const parts = path.split('/').filter(Boolean);
   if (parts[0] === 'empresa' && parts[1]) return <CompanyForm code={parts[1]} />;
+  if (parts[0] === 'c' && parts[1]) return <PublicContact publicId={parts[1]} />;
   if (parts[0] === 'contacto' && parts[1] && parts[2]) return <PublicContact companySlug={parts[1]} contactSlug={parts[2]} />;
+  if (parts[0] === 'privacidad') return <Privacy />;
   if (parts[0] === 'admin') return <Admin />;
   return <Home />;
 }
