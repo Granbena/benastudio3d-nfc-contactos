@@ -322,22 +322,18 @@ function ContactPreferences({ form, setForm }) {
   </fieldset>;
 }
 
-function PublicContact({ publicId, companySlug, contactSlug }) {
+function PublicContact({ publicId }) {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const contactName = data ? `${data.contact.first_name || ''} ${data.contact.last_name || ''}`.trim() : '';
   usePageTitle(data ? `${contactName} | ${data.company.name}` : 'Contactos NFC | BenaStudio3D');
   useEffect(() => {
     (async () => {
-      const rpcName = publicId ? 'nfc_public_profile' : 'nfc_public_profile_legacy';
-      const args = publicId
-        ? { p_public_id: publicId }
-        : { p_company_slug: companySlug, p_contact_slug: contactSlug };
-      const { data: resolved, error } = await supabase.rpc(rpcName, args);
+      const { data: resolved, error } = await supabase.rpc('nfc_public_profile', { p_public_id: publicId });
       if (!error && resolved) setData(resolved);
       setLoading(false);
     })();
-  }, [publicId, companySlug, contactSlug]);
+  }, [publicId]);
   if (loading) return <Spinner label="Abriendo tarjeta…" />;
   if (!data) return <NotFound title="Tarjeta no disponible" text="La dirección puede estar incorrecta o la tarjeta aún no ha sido publicada." />;
   return <main className="public-shell"><ContactCard {...data} /></main>;
@@ -510,7 +506,7 @@ function AdminDashboard({ session }) {
         </article>)}</section>
         <section className="new-company"><h2>Nueva empresa</h2><form onSubmit={createCompany}>
           <Field label="Nombre" value={newCompany.name} onChange={v => setNewCompany({ ...newCompany, name: v })} required />
-          <div className="two-cols"><Field label="Código de acceso" value={newCompany.access_code} onChange={v => setNewCompany({ ...newCompany, access_code: v })} required /><Field label="Dirección web de la empresa" value={newCompany.slug} onChange={v => setNewCompany({ ...newCompany, slug: slugify(v) })} placeholder="Se genera automáticamente" /></div>
+          <Field label="Código de acceso" value={newCompany.access_code} onChange={v => setNewCompany({ ...newCompany, access_code: v })} required />
           <button className="generate-code" type="button" onClick={() => setNewCompany({ ...newCompany, access_code: randomAccessCode() })}>Generar otro código seguro</button>
           <Field label="Bajada de marca" value={newCompany.tagline} onChange={v => setNewCompany({ ...newCompany, tagline: v })} />
           <Field label="Dirección" value={newCompany.address} onChange={v => setNewCompany({ ...newCompany, address: v })} />
@@ -559,7 +555,7 @@ function EditCompany({ company, onClose, onSaved }) {
     <form onSubmit={save}>
       <div className="company-editor-grid"><div>
         <Field label="Nombre" value={form.name} onChange={v => setForm({ ...form, name: v })} required />
-        <div className="two-cols"><Field label="Código de acceso" value={form.access_code} onChange={v => setForm({ ...form, access_code: v })} required /><Field label="Dirección web de la empresa" value={form.slug} onChange={v => setForm({ ...form, slug: slugify(v) })} required /></div>
+        <Field label="Código de acceso" value={form.access_code} onChange={v => setForm({ ...form, access_code: v })} required />
         <Field label="Bajada de marca" value={form.tagline || ''} onChange={v => setForm({ ...form, tagline: v })} />
         <Field label="Dirección" value={form.address || ''} onChange={v => setForm({ ...form, address: v })} />
         <Field label="Sitio web" value={form.website || ''} onChange={v => setForm({ ...form, website: v })} />
@@ -575,11 +571,10 @@ function EditCompany({ company, onClose, onSaved }) {
 function EditContact({ contact, company, onClose, onSaved }) {
   const [form, setForm] = useState(contact);
   const [error, setError] = useState('');
-  const routeLocked = ['published','nfc_programmed','delivered'].includes(contact.status) && Boolean(contact.slug);
   async function save(e) {
     e.preventDefault();
     const phone = String(form.phone || '').trim() || null;
-    const payload = { first_name: form.first_name, last_name: form.last_name, role: form.role, phone, email: String(form.email || '').trim() || null, linkedin: String(form.linkedin || '').trim() || null, show_call: Boolean(phone && form.show_call), show_whatsapp: Boolean(phone && form.show_whatsapp), photo_url: form.photo_url || null, slug: form.slug || null, status: form.status, updated_at: new Date().toISOString() };
+    const payload = { first_name: form.first_name, last_name: form.last_name, role: form.role, phone, email: String(form.email || '').trim() || null, linkedin: String(form.linkedin || '').trim() || null, show_call: Boolean(phone && form.show_call), show_whatsapp: Boolean(phone && form.show_whatsapp), photo_url: form.photo_url || null, status: form.status, updated_at: new Date().toISOString() };
     if (payload.status === 'published' && !contact.published_at) payload.published_at = new Date().toISOString();
     const { error: updateError } = await supabase.from('nfc_contacts').update(payload).eq('id', contact.id);
     if (updateError) setError(updateError.message); else onSaved();
@@ -593,8 +588,7 @@ function EditContact({ contact, company, onClose, onSaved }) {
       <div className="two-cols"><Field label="Teléfono (opcional)" value={form.phone || ''} onChange={v => setForm({ ...form, phone: v })} /><Field label="Correo (opcional)" type="email" value={form.email || ''} onChange={v => setForm({ ...form, email: v })} /></div>
       <Field label="LinkedIn (opcional)" value={form.linkedin || ''} onChange={v => setForm({ ...form, linkedin: v })} placeholder="linkedin.com/in/tu-perfil" />
       <ContactPreferences form={form} setForm={setForm} />
-      <Field label={routeLocked ? 'Alias visible de la tarjeta (bloqueado)' : 'Alias visible de la tarjeta'} value={form.slug || ''} onChange={v => setForm({ ...form, slug: slugify(v) })} placeholder="Se genera automáticamente al publicar" disabled={routeLocked} />
-      <div className="permanent-url"><strong>URL NFC permanente</strong><code>{form.public_id ? `${window.location.origin}/c/${form.public_id}` : 'Se generará automáticamente'}</code><small>Esta dirección no cambia aunque edites nombre, cargo o alias.</small></div>
+      <div className="permanent-url"><strong>URL NFC permanente</strong><code>{form.public_id ? `${window.location.origin}/c/${form.public_id}` : 'Se generará automáticamente'}</code><small>Esta dirección no cambia aunque edites nombre, apellidos, cargo, teléfono, correo o LinkedIn.</small></div>
       <label className="field"><span>Estado</span><select value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>{Object.entries(STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label>
       {error && <p className="form-error">{error}</p>}
       <div className="modal-actions"><button type="button" onClick={onClose}>Cancelar</button><button className="primary-button"><Save size={17} />Guardar cambios</button></div>
@@ -631,7 +625,7 @@ function App() {
   const parts = path.split('/').filter(Boolean);
   if (parts[0] === 'empresa' && parts[1]) return <CompanyForm code={parts[1]} />;
   if (parts[0] === 'c' && parts[1]) return <PublicContact publicId={parts[1]} />;
-  if (parts[0] === 'contacto' && parts[1] && parts[2]) return <PublicContact companySlug={parts[1]} contactSlug={parts[2]} />;
+  if (parts[0] === 'contacto') return <NotFound title="Enlace descontinuado" text="Esta dirección ya no está disponible. Usa la URL NFC permanente asignada al contacto." />;
   if (parts[0] === 'privacidad') return <Privacy />;
   if (parts[0] === 'admin') return <Admin />;
   return <Home />;
