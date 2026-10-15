@@ -183,3 +183,10 @@
 .legal-card p{margin:0;color:#475467;font-size:14px;line-height:1.7}
 .legal-card .legal-note{margin-top:34px;padding-top:18px;border-top:1px solid #e4e7ec;color:#98a2b3;font-size:12px}
 @media(max-width:600px){.legal-shell{padding:16px 10px}.legal-card{padding:22px;border-radius:20px}.legal-header{align-items:flex-start;flex-direction:column;margin-bottom:26px}.contact-card footer{align-items:center;flex-direction:column}}
+
+/* Company profile capacity follows the existing blue and neutral palette. */
+.profile-usage{display:flex;flex-wrap:wrap;gap:5px 18px;margin:16px 0;color:#667085;font-size:12px}
+.profile-full,.profile-success{margin:20px 0;padding:20px;border:1px solid #dbeafe;border-radius:14px;background:#f8fbff}
+.profile-full h1{font-size:26px;line-height:1.2}.profile-full .quote-button{min-height:46px;font-size:13px}
+.profile-success{color:#166534;border-color:#bbf7d0;background:#f0fdf4}.profile-success h2{font:800 20px Manrope}
+.company-usage{margin-top:9px}.company-usage progress{display:block;width:100%;max-width:240px;height:8px;margin-top:7px;accent-color:#2563eb}

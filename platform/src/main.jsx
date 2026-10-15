@@ -16,6 +16,19 @@ const supabase = createClient(supabaseUrl, supabaseKey, {
 
 const ADMIN_EMAIL = 'granbena@gmail.com';
 const WHATSAPP_QUOTE_URL = `https://wa.me/56954056277?text=${encodeURIComponent('Hola, vi el servicio de tarjetas digitales NFC de BenaStudio3D y quisiera recibir información para mi empresa.')}`;
+const PROFILE_STATUSES = ['pending', 'review', 'published', 'nfc_programmed', 'delivered'];
+const PROFILE_LIMIT_MESSAGE = 'La empresa ya utilizó todos los perfiles NFC contratados.';
+function isProfileLimitError(error) {
+  return [error?.code, error?.message, error?.error, error?.details].some(value =>
+    /NFC_PROFILE_LIMIT_REACHED|PROFILE_LIMIT_REACHED/.test(String(value || '')));
+}
+function validProfileLimit(value) { return Number.isSafeInteger(Number(value)) && Number(value) >= 1; }
+async function fetchFormCompany(code) {
+  const { data, error } = await supabase.rpc('nfc_company_for_form', { p_access_code: decodeURIComponent(code).toUpperCase() });
+  if (error) throw error;
+  return (Array.isArray(data) ? data[0] : data) || null;
+}
+
 const CONSENT_VERSION = 'v1-2026-09-25';
 const STATUS = {
   pending: 'Pendiente', review: 'Revisar', published: 'Publicado',
@@ -40,7 +53,7 @@ function randomAccessCode() {
 function emptyCompany() {
   return {
     name: '', slug: '', access_code: randomAccessCode(), logo_text: '', tagline: '', address: '',
-    website: '', instagram: '', enabled: true, ...DEFAULT_COMPANY_BRAND
+    website: '', instagram: '', enabled: true, profile_limit: 1, ...DEFAULT_COMPANY_BRAND
   };
 }
 
@@ -178,16 +191,28 @@ function CompanyForm({ code }) {
   usePageTitle(company ? `Crea tu tarjeta | ${company.name}` : 'Contactos NFC | BenaStudio3D');
 
   useEffect(() => {
-    supabase.rpc('nfc_company_for_form', { p_access_code: decodeURIComponent(code).toUpperCase() })
-      .then(({ data, error: companyError }) => {
-        const resolved = Array.isArray(data) ? data[0] : data;
-        setCompany(companyError ? null : resolved || null);
-        setLoading(false);
-      });
+    let active = true;
+    setLoading(true); setSent(false); setError('');
+    fetchFormCompany(code).then(resolved => {
+      if (active) { setCompany(resolved); setLoading(false); }
+    }).catch(() => {
+      if (active) { setCompany(null); setLoading(false); }
+    });
+    return () => { active = false; };
   }, [code]);
+
+  async function refreshCapacity() {
+    try {
+      const resolved = await fetchFormCompany(code);
+      setCompany(resolved);
+    } catch {
+      setError('No pudimos actualizar la disponibilidad. Recarga la página para consultar los cupos actuales.');
+    }
+  }
 
   async function submit(e) {
     e.preventDefault(); setError('');
+    if (sending || sent || company?.can_submit !== true) return;
     if (!form.consent) return setError('Debes aceptar la autorización para enviar la solicitud.');
     setSending(true);
     const { data, error: submitError } = await supabase.functions.invoke('nfc-submit-contact', {
@@ -207,29 +232,48 @@ function CompanyForm({ code }) {
     });
     setSending(false);
     if (submitError || data?.error) {
+      let responseBody = data;
       let message = data?.error || '';
       if (!message && submitError?.context?.json) {
         try {
           const body = await submitError.context.json();
+          responseBody = body;
           message = body?.error || '';
         } catch (_) {}
+      }
+      if (isProfileLimitError(responseBody) || isProfileLimitError(submitError)) {
+        setCompany(current => ({ ...current, can_submit: false }));
+        await refreshCapacity();
+        return setError(PROFILE_LIMIT_MESSAGE);
       }
       return setError(message || 'No pudimos enviar la solicitud. Revisa los datos e inténtalo nuevamente.');
     }
     setSent(true);
+    await refreshCapacity();
   }
 
   if (loading) return <Spinner />;
   if (!company) return <NotFound title="Código no encontrado" text="Revisa el código entregado por tu empresa o solicítalo nuevamente." />;
-  if (sent) return <main className="form-shell"><Brand /><section className="success-card"><CheckCircle2 size={54} /><h1>Solicitud enviada</h1><p>BenaStudio3D revisará tus datos antes de publicar la tarjeta y programar el NFC.</p><button onClick={() => go('/')}>Volver al inicio</button></section></main>;
 
   const updateRequestUrl = `https://wa.me/56954056277?text=${encodeURIComponent(`Hola, necesito actualizar los datos de mi tarjeta digital NFC.\n\nEmpresa: ${company.name}\nMi nombre completo es:\nEl dato que necesito modificar es:`)}`;
+
+  const moreProfilesUrl = `https://wa.me/56954056277?text=${encodeURIComponent(`Hola, quisiera solicitar más perfiles NFC para ${company.name}.`)}`;
 
   return <main className="form-shell">
     <header className="form-header"><Brand compact /><button className="text-button" onClick={() => go('/')}><ArrowLeft size={16} /> Salir</button></header>
     <div className="form-layout">
       <section className="form-panel">
         <span className="eyebrow"><Building2 size={16} /> {company.name}</span>
+        <div className="profile-usage" aria-live="polite">
+          <span>{company.used_profiles} de {company.profile_limit} perfiles utilizados</span>
+          <span>{company.available_profiles} perfiles disponibles</span>
+        </div>
+        {sent && <section className="profile-success" role="status"><CheckCircle2 size={28} /><h2>Solicitud enviada</h2><p>BenaStudio3D revisará tus datos antes de publicar la tarjeta y programar el NFC.</p></section>}
+        {company.can_submit === false ? <section className="profile-full" role="status">
+          <h1>Todos los perfiles contratados están en uso</h1>
+          <p>Tu empresa tiene {company.used_profiles} de {company.profile_limit} perfiles asignados.</p>
+          <a className="quote-button" href={moreProfilesUrl} target="_blank" rel="noreferrer"><WhatsAppIcon size={18} /> Solicitar más perfiles</a>
+        </section> : !sent && company.can_submit === true ? <>
         <h1>Crea tu tarjeta de contacto</h1>
         <p>Completa solamente la información que quieres mostrar públicamente.</p>
         <form onSubmit={submit}>
@@ -249,22 +293,22 @@ function CompanyForm({ code }) {
             <input type="checkbox" checked={form.consent} onChange={e => setForm({ ...form, consent: e.target.checked })} required />
             <span><strong>Autorización obligatoria *</strong>Autorizo a BenaStudio3D y a {company.name} a almacenar y publicar los datos ingresados en mi tarjeta digital de contacto. Podré solicitar su modificación o eliminación.<small>Versión {CONSENT_VERSION}</small></span>
           </label>
-          {error && <p className="form-error">{error}</p>}
           <button className="primary-button" type="submit" disabled={!form.consent || sending}>{sending ? 'Enviando…' : <>Enviar para revisión <Check size={18} /></>}</button>
-        </form>
+        </form></> : !sent ? <p role="status">No pudimos confirmar los cupos disponibles. Recarga la página antes de enviar una solicitud.</p> : null}
+        {error && <p className="form-error" role="alert">{error}</p>}
         <aside className="update-request-box">
           <strong>¿Ya tienes una tarjeta publicada?</strong>
           <p>Solicita cambios en tu cargo, teléfono, correo u otros datos.</p>
           <a href={updateRequestUrl} target="_blank" rel="noreferrer"><WhatsAppIcon size={18} /> Solicitar actualización por WhatsApp</a>
         </aside>
       </section>
-      <aside className="preview-panel"><span>Vista previa</span><ContactCard company={company} contact={form} preview /></aside>
+      {company.can_submit === true && !sent && <aside className="preview-panel"><span>Vista previa</span><ContactCard company={company} contact={form} preview /></aside>}
     </div>
   </main>;
 }
 
-function Field({ label, value, onChange, type = 'text', required = false, placeholder = '', autoComplete, disabled = false }) {
-  return <label className={`field ${disabled ? 'field-disabled' : ''}`}><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} autoComplete={autoComplete} disabled={disabled} /></label>;
+function Field({ label, value, onChange, type = 'text', required = false, placeholder = '', autoComplete, disabled = false, min, step }) {
+  return <label className={`field ${disabled ? 'field-disabled' : ''}`}><span>{label}{required && ' *'}</span><input type={type} value={value} onChange={e => onChange(e.target.value)} required={required} placeholder={placeholder} autoComplete={autoComplete} disabled={disabled} min={min} step={step} /></label>;
 }
 
 function ColorField({ label, value, onChange }) {
@@ -455,12 +499,18 @@ function AdminDashboard({ session }) {
       supabase.from('nfc_companies').select('*').order('created_at'),
       supabase.from('nfc_contacts').select('*').order('created_at', { ascending: false })
     ]);
-    setCompanies(cs || []); setContacts(people || []);
+    const withUsage = await Promise.all((cs || []).map(async company => {
+      const { count, error } = await supabase.from('nfc_contacts').select('id', { count: 'exact', head: true })
+        .eq('company_id', company.id).in('status', PROFILE_STATUSES);
+      return { ...company, used_profiles: error ? null : count };
+    }));
+    setCompanies(withUsage); setContacts(people || []);
   }
   useEffect(() => { load(); }, []);
 
   async function createCompany(e) {
     e.preventDefault(); setNotice('');
+    if (!validProfileLimit(newCompany.profile_limit)) return setNotice('Perfiles contratados debe ser un entero mínimo de 1.');
     const companySlug = newCompany.slug || slugify(newCompany.name);
     let logoUrl = newCompany.logo_url || null;
     try {
@@ -468,7 +518,7 @@ function AdminDashboard({ session }) {
     } catch (uploadError) {
       return setNotice(uploadError.message);
     }
-    const payload = { ...newCompany, logo_url: logoUrl, slug: companySlug, access_code: newCompany.access_code.toUpperCase() };
+    const payload = { ...newCompany, profile_limit: Number(newCompany.profile_limit), logo_url: logoUrl, slug: companySlug, access_code: newCompany.access_code.toUpperCase() };
     const { error } = await supabase.from('nfc_companies').insert(payload);
     if (error) return setNotice('No se pudo crear la empresa. Revisa que el código y la dirección sean únicos.');
     setNewCompany(emptyCompany()); setNewLogoFile(null);
@@ -481,7 +531,7 @@ function AdminDashboard({ session }) {
     if (status === 'nfc_programmed') payload.nfc_programmed_at = new Date().toISOString();
     if (status === 'delivered') payload.delivered_at = new Date().toISOString();
     const { error } = await supabase.from('nfc_contacts').update(payload).eq('id', contact.id);
-    if (error) setNotice(`No se pudo actualizar: ${error.message}`); else { setNotice('Estado actualizado.'); load(); }
+    if (error) setNotice(isProfileLimitError(error) ? PROFILE_LIMIT_MESSAGE : `No se pudo actualizar: ${error.message}`); else { setNotice('Estado actualizado.'); load(); }
   }
 
   function companyFor(id) { return companies.find(c => c.id === id); }
@@ -501,13 +551,14 @@ function AdminDashboard({ session }) {
       </> : <div className="companies-layout">
         <section><h2>Empresas activas</h2>{companies.map(c => <article className="company-row" key={c.id}>
           <span className="company-mini" style={{ background: c.header_color || c.primary_color }}>{c.logo_url ? <img src={c.logo_url} alt="" /> : (c.logo_text || c.name.slice(0,2))}</span>
-          <div><strong>{c.name}</strong><small>Código: {c.access_code}</small></div>
+          <div><strong>{c.name}</strong><small>Código: {c.access_code}</small><CompanyUsage company={c} /></div>
           <div className="company-actions"><button onClick={() => setSelectedCompany({ ...c })}>Configurar</button><button onClick={() => copy(`${window.location.origin}/empresa/${c.access_code}`)}><Copy size={16} /> Copiar formulario</button></div>
         </article>)}</section>
         <section className="new-company"><h2>Nueva empresa</h2><form onSubmit={createCompany}>
           <Field label="Nombre" value={newCompany.name} onChange={v => setNewCompany({ ...newCompany, name: v })} required />
           <Field label="Código de acceso" value={newCompany.access_code} onChange={v => setNewCompany({ ...newCompany, access_code: v })} required />
           <button className="generate-code" type="button" onClick={() => setNewCompany({ ...newCompany, access_code: randomAccessCode() })}>Generar otro código seguro</button>
+          <Field label="Perfiles contratados" type="number" min="1" step="1" value={newCompany.profile_limit} onChange={v => setNewCompany({ ...newCompany, profile_limit: v })} required />
           <Field label="Bajada de marca" value={newCompany.tagline} onChange={v => setNewCompany({ ...newCompany, tagline: v })} />
           <Field label="Dirección" value={newCompany.address} onChange={v => setNewCompany({ ...newCompany, address: v })} />
           <Field label="Sitio web" value={newCompany.website} onChange={v => setNewCompany({ ...newCompany, website: v })} />
@@ -522,6 +573,15 @@ function AdminDashboard({ session }) {
   </main>;
 }
 
+function CompanyUsage({ company }) {
+  if (company.used_profiles == null) return <small role="status">No se pudo consultar el uso de perfiles.</small>;
+  const available = Math.max(0, company.profile_limit - company.used_profiles);
+  return <div className="company-usage">
+    <small>Perfiles: {company.used_profiles} / {company.profile_limit} · {available} disponibles</small>
+    <progress max={company.profile_limit} value={company.used_profiles} aria-label={`Uso de perfiles de ${company.name}`} />
+  </div>;
+}
+
 function Stat({ label, value }) { return <div className="stat"><span>{label}</span><strong>{value}</strong></div>; }
 
 function EditCompany({ company, onClose, onSaved }) {
@@ -530,7 +590,9 @@ function EditCompany({ company, onClose, onSaved }) {
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   async function save(e) {
-    e.preventDefault(); setError(''); setSaving(true);
+    e.preventDefault(); setError('');
+    if (!validProfileLimit(form.profile_limit)) return setError('Perfiles contratados debe ser un entero mínimo de 1.');
+    setSaving(true);
     let logoUrl = form.logo_url || null;
     try {
       if (logoFile) logoUrl = await uploadCompanyLogo(logoFile, form.slug || form.name);
@@ -538,6 +600,7 @@ function EditCompany({ company, onClose, onSaved }) {
       setSaving(false); return setError(uploadError.message);
     }
     const payload = {
+      profile_limit: Number(form.profile_limit),
       name: String(form.name || '').trim(), slug: slugify(form.slug || form.name), access_code: String(form.access_code || '').trim().toUpperCase(),
       logo_text: String(form.logo_text || '').trim() || null, logo_url: logoUrl, logo_layout: form.logo_layout,
       show_brand_text: form.show_brand_text === true, tagline: String(form.tagline || '').trim() || null,
@@ -548,7 +611,7 @@ function EditCompany({ company, onClose, onSaved }) {
     };
     const { error: updateError } = await supabase.from('nfc_companies').update(payload).eq('id', company.id);
     setSaving(false);
-    if (updateError) setError(`No se pudo guardar: ${updateError.message}`); else onSaved();
+    if (updateError) setError(isProfileLimitError(updateError) ? 'No puedes reducir los perfiles contratados por debajo de los que ya están en uso. Desactiva perfiles o aumenta el límite.' : `No se pudo guardar: ${updateError.message}`); else onSaved();
   }
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal company-modal" onMouseDown={e => e.stopPropagation()}>
     <header><div><span>Configuración corporativa</span><h2>{company.name}</h2></div><button onClick={onClose}>×</button></header>
@@ -556,6 +619,7 @@ function EditCompany({ company, onClose, onSaved }) {
       <div className="company-editor-grid"><div>
         <Field label="Nombre" value={form.name} onChange={v => setForm({ ...form, name: v })} required />
         <Field label="Código de acceso" value={form.access_code} onChange={v => setForm({ ...form, access_code: v })} required />
+        <Field label="Perfiles contratados" type="number" min="1" step="1" value={form.profile_limit} onChange={v => setForm({ ...form, profile_limit: v })} required />
         <Field label="Bajada de marca" value={form.tagline || ''} onChange={v => setForm({ ...form, tagline: v })} />
         <Field label="Dirección" value={form.address || ''} onChange={v => setForm({ ...form, address: v })} />
         <Field label="Sitio web" value={form.website || ''} onChange={v => setForm({ ...form, website: v })} />
@@ -577,7 +641,7 @@ function EditContact({ contact, company, onClose, onSaved }) {
     const payload = { first_name: form.first_name, last_name: form.last_name, role: form.role, phone, email: String(form.email || '').trim() || null, linkedin: String(form.linkedin || '').trim() || null, show_call: Boolean(phone && form.show_call), show_whatsapp: Boolean(phone && form.show_whatsapp), photo_url: form.photo_url || null, status: form.status, updated_at: new Date().toISOString() };
     if (payload.status === 'published' && !contact.published_at) payload.published_at = new Date().toISOString();
     const { error: updateError } = await supabase.from('nfc_contacts').update(payload).eq('id', contact.id);
-    if (updateError) setError(updateError.message); else onSaved();
+    if (updateError) setError(isProfileLimitError(updateError) ? PROFILE_LIMIT_MESSAGE : updateError.message); else onSaved();
   }
   return <div className="modal-backdrop" onMouseDown={onClose}><section className="modal" onMouseDown={e => e.stopPropagation()}>
     <header><div><span>{company?.name}</span><h2>Revisar contacto</h2></div><button onClick={onClose}>×</button></header>

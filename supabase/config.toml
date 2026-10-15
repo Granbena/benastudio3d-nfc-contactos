@@ -1,0 +1,2 @@
+[functions.nfc-submit-contact]
+verify_jwt = false
